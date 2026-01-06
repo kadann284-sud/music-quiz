@@ -17,13 +17,8 @@ const btnClearP2Only = $("btnClearP2Only");
 const btnClearAllSaved = $("btnClearAllSaved");
 const btnBuildCommon = $("btnBuildCommon");
 
-const thP1 = $("thP1");
-const thP2 = $("thP2");
-const thP1b = $("thP1b");
-const thP2b = $("thP2b");
-
-const candidateTbody = $("candidateTbody");
-const savedTbody = $("savedTbody");
+const candidateCards = $("candidateCards");
+const savedCards = $("savedCards");
 const savedSummary = $("savedSummary");
 
 /* ===== Common UI ===== */
@@ -56,6 +51,8 @@ const phaseLine = $("phaseLine");
 const rankLine = $("rankLine");
 const resultEl = $("result");
 
+/* ===== Fixed action bar ===== */
+const actionBar = $("actionBar");
 const btnNextPlayer = $("btnNextPlayer");
 const btnNextRound = $("btnNextRound");
 const btnEnd = $("btnEnd");
@@ -69,16 +66,17 @@ const RANK_VALUE = { A: 1, B: 2, C: 3, D: 4 };
 const RANKS = ["", "A", "B", "C", "D"];
 const RANK_LABELS = {
   "": "未選択",
-  A: "A（ほぼ完璧 / 全曲）",
-  B: "B（結構 / 30曲）",
-  C: "C（知ってる / 10曲）",
-  D: "D（少し / 3曲）",
+  A: "A（ほぼ完璧）",
+  B: "B（結構）",
+  C: "C（知ってる）",
+  D: "D（少し）",
 };
+
 const DIFF_SET_HARD = new Set(["A","B"]);
 const DIFF_SET_EASY = new Set(["C","D"]);
 const DIFF_ALLOWED = new Set(["easy","normal","hard"]);
 
-/* ===== Candidate sources (J-Rock major-heavy) ===== */
+/* ===== Candidate sources ===== */
 const TOP_JROCK = [
   "Mrs. GREEN APPLE","RADWIMPS","BUMP OF CHICKEN","ONE OK ROCK","Official髭男dism",
   "back number","King Gnu","SEKAI NO OWARI","サカナクション","スピッツ",
@@ -94,7 +92,6 @@ const MORE_JROCK = [
   "Awesome City Club","10-FEET","Dragon Ash","ポルカドットスティングレイ",
   "wacci","ねぐせ。","ハルカミライ","ヤングスキニー","My First Story","SPYAIR",
 
-  // 追加分
   "プッシュプルポット","Arakezuri","bokula.","Maki","至福ぽんちょ","Atomic Skipper","Blue Mash",
   "This is Last","ハンブレッターズ","Siip","マルシィ","NELKE","go!go!vanillas","Tele","Chevon",
   "トンボコープ","レトロリロン","reGretGirl","サバシスター","UNFAIR RULE","NEE","the shes gone",
@@ -182,10 +179,6 @@ function readSetupBasics() {
   app.introLen = clamp(parseInt($("introLen")?.value ?? 5, 10) || 5, 1, 15);
   app.timeLimit = clamp(parseInt($("timeLimit")?.value ?? 10, 10) || 0, 0, 120);
 
-  thP1.textContent = p1Name;
-  thP2.textContent = p2Name;
-  thP1b.textContent = p1Name;
-  thP2b.textContent = p2Name;
   sbP1.textContent = p1Name;
   sbP2.textContent = p2Name;
 }
@@ -230,32 +223,45 @@ function makeRankSelect(currentValue, onChange) {
 
 function setGlobalSelection(artist, next) {
   app.globalSelections.set(artist, { ...next });
-  saveCache("mm_globalSelections_v6", Object.fromEntries(app.globalSelections.entries()));
+  saveCache("mm_globalSelections_v7", Object.fromEntries(app.globalSelections.entries()));
 }
 
-function renderCandidateTable() {
-  candidateTbody.innerHTML = "";
+function renderCandidateCards() {
+  candidateCards.innerHTML = "";
+  const p1 = app.players[0].name;
+  const p2 = app.players[1].name;
 
   app.candidates.forEach((artist, idx) => {
     const cur = app.selectionsThis10.get(artist) || { p1Rank: "", p2Rank: "" };
 
-    const tr = document.createElement("tr");
+    const wrap = document.createElement("div");
+    wrap.className = "cardRow";
+    wrap.innerHTML = `
+      <div class="cardTop">
+        <div class="artistName">${escapeHtml(artist)}</div>
+        <div class="badgeMini">候補 ${idx+1}/10</div>
+      </div>
+      <div class="rankGrid">
+        <div class="rankCell" id="c_p1_${idx}"></div>
+        <div class="rankCell" id="c_p2_${idx}"></div>
+      </div>
+    `;
+    candidateCards.appendChild(wrap);
 
-    const tdIdx = document.createElement("td");
-    tdIdx.textContent = String(idx + 1);
+    const p1Cell = wrap.querySelector(`#c_p1_${idx}`);
+    const p2Cell = wrap.querySelector(`#c_p2_${idx}`);
 
-    const tdName = document.createElement("td");
-    tdName.innerHTML = `<strong>${escapeHtml(artist)}</strong>`;
-
-    const tdP1 = document.createElement("td");
-    const tdP2 = document.createElement("td");
+    const l1 = document.createElement("label");
+    l1.textContent = p1;
+    const l2 = document.createElement("label");
+    l2.textContent = p2;
 
     const sel1 = makeRankSelect(cur.p1Rank, (v) => {
       const now = app.selectionsThis10.get(artist) || { p1Rank: "", p2Rank: "" };
       now.p1Rank = v;
       app.selectionsThis10.set(artist, now);
       setGlobalSelection(artist, now);
-      renderSavedTable();
+      renderSavedCards();
     });
 
     const sel2 = makeRankSelect(cur.p2Rank, (v) => {
@@ -263,51 +269,58 @@ function renderCandidateTable() {
       now.p2Rank = v;
       app.selectionsThis10.set(artist, now);
       setGlobalSelection(artist, now);
-      renderSavedTable();
+      renderSavedCards();
     });
 
-    tdP1.appendChild(sel1);
-    tdP2.appendChild(sel2);
-
-    tr.appendChild(tdIdx);
-    tr.appendChild(tdName);
-    tr.appendChild(tdP1);
-    tr.appendChild(tdP2);
-    candidateTbody.appendChild(tr);
+    p1Cell.appendChild(l1); p1Cell.appendChild(sel1);
+    p2Cell.appendChild(l2); p2Cell.appendChild(sel2);
   });
 
   setMsg(setupMsg, "候補10個を更新。登録済みは下に残り続けます。");
 }
 
-function renderSavedTable() {
+function renderSavedCards() {
+  savedCards.innerHTML = "";
+  const p1 = app.players[0].name;
+  const p2 = app.players[1].name;
+
   const entries = [...app.globalSelections.entries()]
     .filter(([_, v]) => (v.p1Rank || v.p2Rank))
     .sort((a, b) => a[0].localeCompare(b[0], "ja"));
 
-  savedTbody.innerHTML = "";
-
   const commonCount = entries.filter(([_,v]) => v.p1Rank && v.p2Rank).length;
-  savedSummary.textContent = `登録済み：${entries.length}件（片方だけも含む） / 共通（両者選択）：${commonCount}件（共通1件以上で開始OK）`;
+  savedSummary.textContent = `登録済み：${entries.length}件 / 共通（両者選択）：${commonCount}件`;
 
   entries.forEach(([artist, v], idx) => {
-    const tr = document.createElement("tr");
+    const wrap = document.createElement("div");
+    wrap.className = "cardRow";
+    wrap.innerHTML = `
+      <div class="cardTop">
+        <div class="artistName">${escapeHtml(artist)}</div>
+        <div class="badgeMini">#${idx+1}</div>
+      </div>
+      <div class="rankGrid">
+        <div class="rankCell" id="s_p1_${idx}"></div>
+        <div class="rankCell" id="s_p2_${idx}"></div>
+      </div>
+    `;
+    savedCards.appendChild(wrap);
 
-    const tdIdx = document.createElement("td");
-    tdIdx.textContent = String(idx + 1);
+    const p1Cell = wrap.querySelector(`#s_p1_${idx}`);
+    const p2Cell = wrap.querySelector(`#s_p2_${idx}`);
 
-    const tdName = document.createElement("td");
-    tdName.innerHTML = `<strong>${escapeHtml(artist)}</strong>`;
-
-    const tdP1 = document.createElement("td");
-    const tdP2 = document.createElement("td");
+    const l1 = document.createElement("label");
+    l1.textContent = p1;
+    const l2 = document.createElement("label");
+    l2.textContent = p2;
 
     const sel1 = makeRankSelect(v.p1Rank, (nv) => {
       const now = app.globalSelections.get(artist) || { p1Rank:"", p2Rank:"" };
       now.p1Rank = nv;
       setGlobalSelection(artist, now);
       if (app.selectionsThis10.has(artist)) app.selectionsThis10.set(artist, { ...now });
-      renderCandidateTable();
-      renderSavedTable();
+      renderCandidateCards();
+      renderSavedCards();
     });
 
     const sel2 = makeRankSelect(v.p2Rank, (nv) => {
@@ -315,18 +328,12 @@ function renderSavedTable() {
       now.p2Rank = nv;
       setGlobalSelection(artist, now);
       if (app.selectionsThis10.has(artist)) app.selectionsThis10.set(artist, { ...now });
-      renderCandidateTable();
-      renderSavedTable();
+      renderCandidateCards();
+      renderSavedCards();
     });
 
-    tdP1.appendChild(sel1);
-    tdP2.appendChild(sel2);
-
-    tr.appendChild(tdIdx);
-    tr.appendChild(tdName);
-    tr.appendChild(tdP1);
-    tr.appendChild(tdP2);
-    savedTbody.appendChild(tr);
+    p1Cell.appendChild(l1); p1Cell.appendChild(sel1);
+    p2Cell.appendChild(l2); p2Cell.appendChild(sel2);
   });
 }
 
@@ -334,8 +341,8 @@ function rerollCandidates() {
   readSetupBasics();
   app.candidates = generateCandidates10();
   ensureSelectionsThis10();
-  renderCandidateTable();
-  renderSavedTable();
+  renderCandidateCards();
+  renderSavedCards();
 }
 
 function clearRanksOnlyThis10() {
@@ -346,8 +353,8 @@ function clearRanksOnlyThis10() {
     setGlobalSelection(artist, now);
     app.selectionsThis10.set(artist, { p1Rank:"", p2Rank:"" });
   }
-  renderCandidateTable();
-  renderSavedTable();
+  renderCandidateCards();
+  renderSavedCards();
   setMsg(setupMsg, "この10個の選択だけリセットしました。");
 }
 
@@ -357,16 +364,16 @@ function clearP2OnlyAllArtists() {
     setGlobalSelection(artist, next);
     if (app.selectionsThis10.has(artist)) app.selectionsThis10.set(artist, { ...next });
   }
-  renderCandidateTable();
-  renderSavedTable();
-  setMsg(setupMsg, "P2だけ履歴（ランク）を全アーティストで削除しました。P1は保持されています。");
+  renderCandidateCards();
+  renderSavedCards();
+  setMsg(setupMsg, "P2だけ履歴（ランク）を全アーティストで削除しました。");
 }
 
 function clearAllSaved() {
   app.globalSelections.clear();
-  saveCache("mm_globalSelections_v6", {});
-  renderCandidateTable();
-  renderSavedTable();
+  saveCache("mm_globalSelections_v7", {});
+  renderCandidateCards();
+  renderSavedCards();
   setMsg(setupMsg, "登録済みを全消去しました。");
 }
 
@@ -442,10 +449,10 @@ async function loadDataQuestions() {
         meta: q.meta ? String(q.meta) : ""
       }));
 
-    dataStatus.textContent = `data.json：${app.dataQuestions.length}問を読み込み（difficulty: easy/normal/hard 対応）`;
+    dataStatus.textContent = `data.json：${app.dataQuestions.length}問（difficulty: easy/normal/hard）`;
   } catch {
     app.dataQuestions = [];
-    dataStatus.textContent = "data.json：未読み込み（ファイルが無い/形式が違う）";
+    dataStatus.textContent = "data.json：未読み込み";
   }
 }
 
@@ -558,7 +565,7 @@ async function fetchAlbumTracks(collectionId) {
 }
 
 async function fetchDataForCommon() {
-  setMsg(commonMsg, "iTunesデータ取得中…（曲/イントロ/ジャケ）");
+  setMsg(commonMsg, "iTunesデータ取得中…");
 
   app.itunesByArtist.clear();
   app.albumTracksById.clear();
@@ -575,7 +582,6 @@ async function fetchDataForCommon() {
     await new Promise(r => setTimeout(r, 60));
   }
 
-  // preload: up to 2 albums per artist
   for (const a of app.common) {
     const pack = app.itunesByArtist.get(a.label);
     if (!pack) continue;
@@ -586,7 +592,7 @@ async function fetchDataForCommon() {
     }
   }
 
-  setMsg(commonMsg, "取得完了。ゲーム開始！");
+  setMsg(commonMsg, "取得完了。開始！");
   startGame();
 }
 
@@ -644,7 +650,7 @@ function startTimer(seconds, onTimeout) {
 }
 
 /* =========================
-   Scoring + difficulty by ranks
+   Scoring + difficulty
 ========================= */
 function rankOf(playerIndex, topicArtist) {
   return playerIndex === 0 ? topicArtist.p1Rank : topicArtist.p2Rank;
@@ -657,12 +663,11 @@ function pointsFor(playerIndex, topicArtist) {
   const self = rankValueOf(playerIndex, topicArtist);
   const opp = rankValueOf(1 - playerIndex, topicArtist);
   const diff = Math.abs(self - opp);
-  return diff / 3 + 1; // ★要望：差÷3 + 1
+  return diff / 3 + 1;
 }
 function questionLevel(topicArtist) {
   const a = topicArtist.p1Rank;
   const b = topicArtist.p2Rank;
-
   if (DIFF_SET_HARD.has(a) && DIFF_SET_HARD.has(b)) return "hard";
   if (DIFF_SET_EASY.has(a) && DIFF_SET_EASY.has(b)) return "easy";
   return "normal";
@@ -674,23 +679,18 @@ function levelJP(level){
 /* =========================
    Question builders
 ========================= */
-
-/** data.json (difficultyで優先 + artistsで共通に絞る) */
 function makeQ_fromDataJson(topicArtist) {
   if (!app.dataQuestions.length) return null;
 
   const commons = new Set(app.common.map(a => a.label));
-  const level = questionLevel(topicArtist); // easy/normal/hard
+  const level = questionLevel(topicArtist);
 
-  // 共通アーティストに関係ある問題だけ
   const related = app.dataQuestions.filter(q => q.artists.some(ar => commons.has(ar)));
   if (!related.length) return null;
 
-  // トピック一致優先
   const strict = related.filter(q => q.artists.includes(topicArtist.label));
   const basePool = strict.length ? strict : related;
 
-  // 難易度優先：level → normal → なんでも
   const pool1 = basePool.filter(q => q.difficulty === level);
   const pool2 = basePool.filter(q => q.difficulty === "normal");
   const pool = pool1.length ? pool1 : (pool2.length ? pool2 : basePool);
@@ -704,14 +704,13 @@ function makeQ_fromDataJson(topicArtist) {
 
   return {
     kind: "data_json",
-    promptText: `${q.prompt}\n（data:${q.difficulty} / prefer:${level}）` + (q.meta ? `\n${q.meta}` : ""),
+    promptText: `${q.prompt}\n（data:${q.difficulty} / prefer:${level}）`,
     media: null,
     choices: shuffle([q.answer, ...distractors]),
     correct: q.answer
   };
 }
 
-/** iTunes track pool by level (easy=front, hard=back) */
 function selectTrackPool(pack, level) {
   const usable = (pack.tracks || []).filter(t => t.preview && t.name);
   if (usable.length < 4) return usable;
@@ -726,7 +725,6 @@ function selectTrackPool(pack, level) {
   return usable.slice(start, start + win);
 }
 
-/** Intro quiz: answer = 曲名 */
 function makeQ_introToTitle(topicArtist) {
   const pack = app.itunesByArtist.get(topicArtist.label);
   if (!pack) return null;
@@ -743,7 +741,6 @@ function makeQ_introToTitle(topicArtist) {
   if (uniq.length < 3) return null;
 
   const distractors = shuffle(uniq).slice(0, 3);
-
   const randomStart = (level === "hard");
   const seconds = app.introLen;
   const startAt = randomStart ? Math.floor(Math.random() * Math.max(1, 30 - seconds)) : 0;
@@ -757,7 +754,6 @@ function makeQ_introToTitle(topicArtist) {
   };
 }
 
-/** album choice by level using albumFirstIndex (easy=front, hard=back) */
 function selectAlbumPool(pack, level) {
   const albums = (pack.albums || []).filter(a => a.collectionId);
   if (albums.length < 1) return albums;
@@ -778,12 +774,6 @@ function selectAlbumPool(pack, level) {
   return withIdx.slice(start, start + win);
 }
 
-/**
- * Jacket -> song in this album
- * Answer = album included track name
- * Choices (wrong) = same artist songs NOT in that album
- * NOTE: アルバム名は表示しない
- */
 async function makeQ_coverAlbumToTitle(topicArtist) {
   const pack = app.itunesByArtist.get(topicArtist.label);
   if (!pack) return null;
@@ -799,22 +789,15 @@ async function makeQ_coverAlbumToTitle(topicArtist) {
 
     const correct = pickRandom(album.trackNames);
 
-    // wrong: same artist tracks NOT in this album
     const allArtistSongs = (pack.tracks || []).map(t => t.name).filter(Boolean);
     const exclude = new Set(album.trackNames.map(normalizeKey));
     const candidates = [...new Set(allArtistSongs)]
       .filter(n => normalizeKey(n) !== normalizeKey(correct))
       .filter(n => !exclude.has(normalizeKey(n)));
 
-    let wrongPool = candidates;
-    if (wrongPool.length >= 8) {
-      if (level === "easy") wrongPool = wrongPool.slice(0, Math.min(18, wrongPool.length));
-      if (level === "hard") wrongPool = wrongPool.slice(Math.max(0, wrongPool.length - 18));
-    }
-    if (wrongPool.length < 3) continue;
+    if (candidates.length < 3) continue;
 
-    const choices = shuffle([correct, ...shuffle(wrongPool).slice(0, 3)]);
-
+    const choices = shuffle([correct, ...shuffle(candidates).slice(0, 3)]);
     const artwork = album.artwork || al.artwork || (pack.tracks.find(t => t.artwork)?.artwork || "");
     if (!artwork) continue;
 
@@ -870,6 +853,10 @@ async function buildRoundQuestionAsync() {
 /* =========================
    Game flow
 ========================= */
+function setActionBarVisible(on){
+  actionBar.classList.toggle("hidden", !on);
+}
+
 function startGame() {
   app.game.round = 0;
   app.game.answerer = 0;
@@ -885,6 +872,7 @@ function startGame() {
   sbP2Score.textContent = fmtScore(0);
 
   show(gameEl);
+  setActionBarVisible(true);
   showRoundHandoff();
 }
 
@@ -897,7 +885,7 @@ function showRoundHandoff() {
   if (timeBarFill) timeBarFill.style.transform = "scaleX(1)";
 
   turnBadge.textContent = `Round ${app.game.round + 1}`;
-  qMeta.textContent = `全${app.totalQ}ラウンド（同じ問題を2人が回答 / P1も正解表示）`;
+  qMeta.textContent = `全${app.totalQ}ラウンド（同じ問題を2人が回答）`;
 
   handoffTitle.textContent = `Round ${app.game.round + 1}：画面を隠して開始`;
   btnReveal.textContent = "問題を見る";
@@ -953,8 +941,8 @@ function renderForAnswerer() {
     qMedia.classList.remove("hidden");
     qMedia.innerHTML = `
       <div style="width:100%">
-        <button id="btnPlayIntro" class="btn primary" style="width:100%">▶ イントロ再生（${q.media.seconds}秒）</button>
-        <div class="sub tiny" style="margin-top:8px">※何回でも再生OK（端末の音量注意）</div>
+        <button id="btnPlayIntro" class="btn primary wide">▶ イントロ再生（${q.media.seconds}秒）</button>
+        <div class="sub tiny" style="margin-top:8px">※何回でも再生OK</div>
       </div>
     `;
     const btn = $("btnPlayIntro");
@@ -964,7 +952,7 @@ function renderForAnswerer() {
         await playIntro(q.media.previewUrl, q.media.seconds, q.media.startAt || 0);
       } catch {
         resultEl.className = "result bad";
-        resultEl.textContent = "再生に失敗…（通信状況を確認して再度）";
+        resultEl.textContent = "再生に失敗…";
       } finally {
         btn.disabled = false;
       }
@@ -1013,14 +1001,11 @@ function onTimeout() {
   if (introAudio) { introAudio.pause(); introAudio = null; }
 
   const q = app.game.currentQ;
-
-  // P1も正解表示
   resultEl.className = "result bad";
   resultEl.textContent = `⏱ 時間切れ… 正解は「${q.correct}」`;
 
-  if (ans === 0) {
-    btnNextPlayer.disabled = false;
-  } else {
+  if (ans === 0) btnNextPlayer.disabled = false;
+  else {
     btnNextPlayer.classList.add("hidden");
     btnNextRound.classList.remove("hidden");
     btnNextRound.disabled = false;
@@ -1039,15 +1024,13 @@ function answerChoice(choice) {
   lockChoices();
   if (introAudio) { introAudio.pause(); introAudio = null; }
 
-  // P1も正解表示
   resultEl.className = ok ? "result good" : "result bad";
   resultEl.textContent = ok
     ? `✅ 正解！ 正解は「${q.correct}」`
     : `❌ 不正解… 正解は「${q.correct}」`;
 
-  if (ans === 0) {
-    btnNextPlayer.disabled = false;
-  } else {
+  if (ans === 0) btnNextPlayer.disabled = false;
+  else {
     btnNextPlayer.classList.add("hidden");
     btnNextRound.classList.remove("hidden");
     btnNextRound.disabled = false;
@@ -1088,7 +1071,7 @@ function applyRoundScoreAndNext() {
   btnReveal.textContent = "問題を見る";
 
   if (app.game.round >= app.totalQ) {
-    endGame(`最終ラウンド加点：${app.players[0].name}+${fmtScore(add0)}, ${app.players[1].name}+${fmtScore(add1)}`);
+    endGame(`最終加点：${app.players[0].name}+${fmtScore(add0)}, ${app.players[1].name}+${fmtScore(add1)}`);
     return;
   }
 
@@ -1098,6 +1081,8 @@ function applyRoundScoreAndNext() {
 function endGame(reason) {
   stopTimer();
   if (introAudio) { introAudio.pause(); introAudio = null; }
+
+  setActionBarVisible(false);
 
   const p1 = app.players[0].name;
   const p2 = app.players[1].name;
@@ -1141,9 +1126,8 @@ btnFetchData.onclick = async () => {
 };
 
 btnReveal.onclick = async () => {
-  if (!app.game.currentQ) {
-    await revealRound();
-  } else {
+  if (!app.game.currentQ) await revealRound();
+  else {
     handoff.classList.add("hidden");
     qBox.classList.remove("hidden");
     renderForAnswerer();
@@ -1169,7 +1153,7 @@ btnRestart.onclick = () => {
 (async function init(){
   show(setupEl);
 
-  const raw = loadCache("mm_globalSelections_v6", {});
+  const raw = loadCache("mm_globalSelections_v7", {});
   app.globalSelections = new Map(Object.entries(raw).map(([k, v]) => [k, v || {p1Rank:"", p2Rank:""}]));
 
   readSetupBasics();
