@@ -1,0 +1,249 @@
+:root {
+  --bg: #0b0e14;
+  --muted: #97a3b6;
+  --text: #e8eefc;
+  --line: rgba(255,255,255,.12);
+  --shadow: 0 10px 30px rgba(0,0,0,.35);
+  --radius: 16px;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif;
+  background: radial-gradient(1200px 600px at 10% 10%, rgba(110,168,255,.18), transparent),
+              radial-gradient(900px 500px at 90% 20%, rgba(126,231,199,.12), transparent),
+              var(--bg);
+  color: var(--text);
+}
+
+.app-header { padding: 18px 16px 6px; max-width: 1100px; margin: 0 auto; }
+h1 { margin: 0 0 6px; font-size: 20px; }
+h2 { margin: 0 0 10px; font-size: 18px; }
+.h3 { margin: 14px 0 8px; font-size: 14px; color: var(--muted); }
+.sub { margin: 0; color: var(--muted); font-size: 12px; }
+
+.container { max-width: 1100px; margin: 0 auto; padding: 10px 16px 40px; display: grid; gap: 14px; }
+
+.card {
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px;
+}
+
+label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+
+.input {
+  width: 100%;
+  background: rgba(0,0,0,.25);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 10px;
+  outline: none;
+}
+
+.row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; align-items: end; }
+.small { flex: 1; min-width: 180px; }
+.smallInput { max-width: 220px; }
+
+.btn {
+  border: 1px solid var(--line);
+  background: rgba(0,0,0,.25);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.btn.primary {
+  background: linear-gradient(180deg, rgba(110,168,255,.35), rgba(110,168,255,.18));
+  border-color: rgba(110,168,255,.55);
+}
+.btn.danger {
+  border-color: rgba(255,107,107,.55);
+  background: rgba(255,107,107,.12);
+}
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+
+.msg { margin-top: 10px; color: var(--muted); font-size: 12px; }
+.hidden { display: none !important; }
+
+.hint{
+  border: 1px dashed rgba(255,255,255,.18);
+  background: rgba(0,0,0,.18);
+  border-radius: 14px;
+  padding: 10px;
+  margin-top: 10px;
+}
+
+.list { display: grid; gap: 8px; margin-top: 10px; }
+.item {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  background: rgba(0,0,0,.18);
+}
+.item .name { font-weight: 800; }
+
+.scoreboard { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.score {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(0,0,0,.18);
+  padding: 12px;
+}
+.score .name { color: var(--muted); font-size: 12px; }
+.score .points { font-size: 26px; font-weight: 900; margin-top: 4px; }
+
+.turn { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-top: 10px; }
+.badge {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(126,231,199,.45);
+  color: rgba(126,231,199,.95);
+  background: rgba(126,231,199,.08);
+  font-weight: 800;
+}
+.tiny { color: var(--muted); font-size: 12px; }
+
+/* ===== Timer bar ===== */
+.timerRow{
+  display:flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+.timerLeft{
+  flex: 1;
+  min-width: 240px;
+}
+.timerLabel{
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+.timeBar{
+  width: 100%;
+  height: 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(0,0,0,.18);
+  overflow: hidden;
+}
+.timeBarFill{
+  height: 100%;
+  width: 100%;
+  background: rgba(110,168,255,.6);
+  transform-origin: left center;
+  transform: scaleX(1);
+  transition: transform 0.08s linear;
+}
+
+.handoff {
+  margin-top: 12px;
+  border: 1px dashed rgba(255,255,255,.25);
+  border-radius: 16px;
+  padding: 16px;
+  background: rgba(0,0,0,.18);
+}
+.handoffBox { text-align: center; }
+
+.qBox { margin-top: 12px; }
+.qText {
+  font-size: 18px;
+  line-height: 1.4;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(0,0,0,.18);
+  border: 1px solid var(--line);
+  white-space: pre-wrap;
+}
+
+.qMedia{
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(0,0,0,.18);
+  border: 1px solid var(--line);
+  display: flex;
+  justify-content: center;
+}
+.qMedia img{
+  width: 180px;
+  height: 180px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.15);
+  object-fit: cover;
+}
+
+.choices { display: grid; gap: 10px; margin-top: 12px; }
+.choiceBtn {
+  text-align: left;
+  border: 1px solid var(--line);
+  background: rgba(0,0,0,.18);
+  color: var(--text);
+  padding: 12px;
+  border-radius: 14px;
+  cursor: pointer;
+  font-size: 16px;
+}
+.choiceBtn:hover { border-color: rgba(110,168,255,.55); }
+
+.phaseBox{
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px;
+  background: rgba(0,0,0,.18);
+}
+.phaseLine{ font-weight: 800; }
+.result { margin-top: 12px; min-height: 24px; color: var(--muted); }
+.result.good { color: rgba(126,231,199,.95); }
+.result.bad { color: rgba(255,107,107,.95); }
+
+.final {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  background: rgba(0,0,0,.18);
+}
+
+.footer { max-width: 1100px; margin: 0 auto; padding: 10px 16px 20px; color: var(--muted); }
+
+/* ===== tables ===== */
+.tableWrap { overflow-x: auto; margin-top: 10px; }
+.pickTable {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px;
+  background: rgba(0,0,0,.18);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.pickTable th, .pickTable td {
+  border-bottom: 1px solid var(--line);
+  padding: 10px;
+  text-align: left;
+  vertical-align: middle;
+}
+.pickTable thead th {
+  background: rgba(255,255,255,.06);
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 12px;
+}
+.rankSel {
+  width: 100%;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(0,0,0,.25);
+  color: var(--text);
+}

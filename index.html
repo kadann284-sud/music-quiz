@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>music-match アーティスト対戦（iTunes + data.json）</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>music-match：共通アーティスト対戦（iTunes + data.json）</h1>
+    <p class="sub">
+      1台端末 / 同一問題を2人が解く / 4択のみ / ラウンド後に同時加点<br/>
+      ランク値：A=1, B=2, C=3, D=4 / 正解加点：|差|÷3+1（差=両者ランク差）<br/>
+      出題難易度：両者A/B→hard（マイナー寄り） / 両者C/D→easy（有名寄り） / それ以外→normal
+    </p>
+  </header>
+
+  <main class="container">
+
+    <!-- ===== Setup ===== -->
+    <section id="setup" class="card">
+      <h2>1) 候補（邦ロック多め）から選択して登録</h2>
+
+      <div class="row">
+        <div class="small">
+          <label>プレイヤー1 名前</label>
+          <input id="p1Name" class="input" value="P1" />
+        </div>
+        <div class="small">
+          <label>プレイヤー2 名前</label>
+          <input id="p2Name" class="input" value="P2" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="small">
+          <label>ラウンド数（問題数）</label>
+          <input id="totalQ" class="input smallInput" type="number" min="3" value="12" />
+        </div>
+
+        <div class="small">
+          <label>イントロ秒数（再生時間）</label>
+          <select id="introLen" class="input smallInput">
+            <option value="8">8秒（EASY）</option>
+            <option value="5" selected>5秒（NORMAL）</option>
+            <option value="3">3秒（HARD）</option>
+          </select>
+        </div>
+
+        <div class="small">
+          <label>制限時間（秒 / 0で無効）</label>
+          <input id="timeLimit" class="input smallInput" type="number" min="0" value="10" />
+        </div>
+      </div>
+
+      <div class="hint">
+        <p class="sub">
+          ランク定義：<br/>
+          A：ほぼ完璧（全曲レベル） / B：結構知っている（30曲レベル） / C：知っている（10曲レベル・代表曲そこそこ） / D：少し知っている（3曲レベル・代表曲少し）<br/>
+          得点：正解したら「そのアーティストに対する両者のランク差」で決まる（|差|÷3+1）<br/>
+          data.json の difficulty（easy/hard/normal）も、上の難易度に合わせて優先出題します。
+        </p>
+      </div>
+
+      <div class="row">
+        <button id="btnRerollCandidates" class="btn primary">候補を10個ランダム生成</button>
+        <button id="btnClearRanksThis10" class="btn">この10個の選択だけリセット</button>
+        <button id="btnClearP2Only" class="btn">P2だけ履歴削除（全アーティスト）</button>
+        <button id="btnClearAllSaved" class="btn danger">登録済みを全消去</button>
+      </div>
+
+      <div class="hint">
+        <p class="sub">
+          ランダム生成しても、過去にA/B/C/Dを付けたアーティストは「登録済み」に残ります（蓄積・保存）。<br/>
+          対戦は「登録済み」のうち <strong>両者がランクを付けた共通アーティスト</strong>だけで行います（共通1件以上で開始OK）。
+        </p>
+      </div>
+
+      <h3 class="h3">今回の候補（10個）</h3>
+      <div class="tableWrap">
+        <table class="pickTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>候補アーティスト</th>
+              <th id="thP1">P1</th>
+              <th id="thP2">P2</th>
+            </tr>
+          </thead>
+          <tbody id="candidateTbody"></tbody>
+        </table>
+      </div>
+
+      <h3 class="h3">登録済み（保持・蓄積）</h3>
+      <div class="sub" id="savedSummary"></div>
+      <div class="tableWrap">
+        <table class="pickTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>登録済みアーティスト</th>
+              <th id="thP1b">P1</th>
+              <th id="thP2b">P2</th>
+            </tr>
+          </thead>
+          <tbody id="savedTbody"></tbody>
+        </table>
+      </div>
+
+      <div class="row">
+        <button id="btnBuildCommon" class="btn primary">共通アーティストを抽出 → 開始準備</button>
+      </div>
+
+      <div class="sub" id="dataStatus"></div>
+      <div id="setupMsg" class="msg"></div>
+    </section>
+
+    <!-- ===== Common List ===== -->
+    <section id="common" class="card hidden">
+      <h2>2) 共通アーティスト（対戦対象）</h2>
+      <p class="sub">iTunes（曲名・イントロ・ジャケ）+ data.json（固定問題）を混ぜて出題</p>
+
+      <div id="commonList" class="list"></div>
+
+      <div class="row">
+        <button id="btnFetchData" class="btn primary">iTunesデータ取得してゲーム開始</button>
+        <button id="btnBackToSetup" class="btn">戻る</button>
+      </div>
+
+      <div id="commonMsg" class="msg"></div>
+    </section>
+
+    <!-- ===== Game ===== -->
+    <section id="game" class="card hidden">
+      <h2>3) 対戦（同じ問題を2人が解く）</h2>
+
+      <div class="scoreboard">
+        <div class="score">
+          <div class="name" id="sbP1">P1</div>
+          <div class="points" id="sbP1Score">0.0</div>
+        </div>
+        <div class="score">
+          <div class="name" id="sbP2">P2</div>
+          <div class="points" id="sbP2Score">0.0</div>
+        </div>
+      </div>
+
+      <div class="turn">
+        <div class="badge" id="turnBadge">Round 1</div>
+        <div class="tiny" id="qMeta"></div>
+      </div>
+
+      <div class="timerRow">
+        <div class="timerLeft">
+          <div class="timerLabel">⏱ <span id="timeLeft">--</span>s</div>
+          <div class="timeBar">
+            <div id="timeBarFill" class="timeBarFill"></div>
+          </div>
+        </div>
+        <div class="tiny" id="timerNote"></div>
+      </div>
+
+      <div id="handoff" class="handoff">
+        <div class="handoffBox">
+          <h3 id="handoffTitle">次の人へ</h3>
+          <p>画面を隠してから「問題を見る」を押してね。</p>
+          <button id="btnReveal" class="btn primary">問題を見る</button>
+        </div>
+      </div>
+
+      <div id="qBox" class="qBox hidden">
+        <div id="qText" class="qText"></div>
+        <div id="qMedia" class="qMedia hidden"></div>
+
+        <div id="choices" class="choices"></div>
+
+        <div class="phaseBox">
+          <div class="phaseLine" id="phaseLine">P1が回答</div>
+          <div class="sub tiny" id="rankLine"></div>
+        </div>
+
+        <div id="result" class="result"></div>
+
+        <div class="row">
+          <button id="btnNextPlayer" class="btn primary" disabled>次の人へ</button>
+          <button id="btnNextRound" class="btn primary hidden" disabled>次のラウンド</button>
+          <button id="btnEnd" class="btn">終了</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Result ===== -->
+    <section id="done" class="card hidden">
+      <h2>結果</h2>
+      <div id="final" class="final"></div>
+      <div class="row">
+        <button id="btnRestart" class="btn primary">最初から</button>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <small>Data: iTunes Search/Lookup API + local data.json</small>
+  </footer>
+
+  <script src="./main.js"></script>
+</body>
+</html>

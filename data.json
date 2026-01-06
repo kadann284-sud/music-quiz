@@ -1,0 +1,17 @@
+{
+  "questions": [
+    {
+      "artists": ["Mrs. GREEN APPLE"],
+      "prompt": "次のうち、Mrs. GREEN APPLE の曲名はどれ？",
+      "choices": ["青と夏", "赤と冬", "白と秋", "黒と春"],
+      "answer": "青と夏",
+      "meta": "（data.json問題）"
+    },
+    {
+      "artists": ["RADWIMPS"],
+      "prompt": "RADWIMPS の曲名として正しいのはどれ？",
+      "choices": ["前前前世", "後後後世", "今今今世", "昔昔昔世"],
+      "answer": "前前前世"
+    }
+  ]
+}
