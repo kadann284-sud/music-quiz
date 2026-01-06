@@ -2,16 +2,145 @@
   "questions": [
     {
       "artists": ["Mrs. GREEN APPLE"],
-      "prompt": "次のうち、Mrs. GREEN APPLE の曲名はどれ？",
-      "choices": ["青と夏", "赤と冬", "白と秋", "黒と春"],
-      "answer": "青と夏",
-      "meta": "（data.json問題）"
+      "difficulty": "easy",
+      "prompt": "次のうちバラード曲はどれ？",
+      "choices": ["インフェルノ", "春愁", "サママ・フェスティバル！", "WanteD! WanteD!"],
+      "answer": "春愁"
     },
     {
-      "artists": ["RADWIMPS"],
-      "prompt": "RADWIMPS の曲名として正しいのはどれ？",
-      "choices": ["前前前世", "後後後世", "今今今世", "昔昔昔世"],
-      "answer": "前前前世"
+      "artists": ["Mrs. GREEN APPLE"],
+      "difficulty": "easy",
+      "prompt": "次のうちアップテンポな曲はどれ？",
+      "choices": ["umbrella", "橙", "インフェルノ", "春愁"],
+      "answer": "インフェルノ"
+    },
+    {
+      "artists": ["Mrs. GREEN APPLE"],
+      "difficulty": "easy",
+      "prompt": "感情をしっとり歌い上げるバラードはどれ？",
+      "choices": ["ダンスホール", "僕のこと", "StaRt", "Magic"],
+      "answer": "僕のこと"
+    },
+    {
+      "artists": ["Mrs. GREEN APPLE"],
+      "difficulty": "easy",
+      "prompt": "ライブで跳ねるアップテンポ曲はどれ？",
+      "choices": ["春愁", "橙", "サママ・フェスティバル！", "umbrella"],
+      "answer": "サママ・フェスティバル！"
+    },
+    {
+      "artists": ["Mrs. GREEN APPLE"],
+      "difficulty": "normal",
+      "prompt": "静かな導入が印象的なバラードはどれ？",
+      "choices": ["インフェルノ", "橙", "WanteD! WanteD!", "青と夏"],
+      "answer": "橙"
+    },
+    {
+      "artists": ["Mrs. GREEN APPLE"],
+      "difficulty": "easy",
+      "prompt": "疾走感が特徴のアップテンポ曲はどれ？",
+      "choices": ["umbrella", "StaRt", "春愁", "橙"],
+      "answer": "StaRt"
+    },
+    {
+      "artists": ["Mrs. GREEN APPLE"],
+      "difficulty": "normal",
+      "prompt": "失恋や内省を描いたバラードはどれ？",
+      "choices": ["ダンスホール", "アンラブレス", "Magic", "サママ・フェスティバル！"],
+      "answer": "アンラブレス"
+    },
+    {
+      "artists": ["Mrs. GREEN APPLE"],
+      "difficulty": "easy",
+      "prompt": "フェス向きのアップテンポ曲はどれ？",
+      "choices": ["春愁", "WanteD! WanteD!", "橙", "umbrella"],
+      "answer": "WanteD! WanteD!"
+    },
+    {
+      "artists": ["Mrs. GREEN APPLE"],
+      "difficulty": "normal",
+      "prompt": "歌詞重視で聴かせるバラードはどれ？",
+      "choices": ["StaRt", "umbrella", "インフェルノ", "青と夏"],
+      "answer": "umbrella"
+    },
+    {
+      "artists": ["Mrs. GREEN APPLE"],
+      "difficulty": "easy",
+      "prompt": "イントロから一気に盛り上がるアップテンポ曲はどれ？",
+      "choices": ["僕のこと", "青と夏", "春愁", "橙"],
+      "answer": "青と夏"
+    },
+
+    {
+      "artists": ["Mrs. GREEN APPLE"],
+      "difficulty": "easy",
+      "prompt": "最も初期にリリースされた曲はどれ？",
+      "choices": ["青と夏", "インフェルノ", "StaRt", "ダンスホール"],
+      "answer": "StaRt"
+    },
+    {
+      "artists": ["Mrs. GREEN APPLE"],
+      "difficulty": "easy",
+      "prompt": "比較的新しい楽曲はどれ？",
+      "choices": ["StaRt", "Love me, Love you", "ケセラセラ", "インフェルノ"],
+      "answer": "ケセラセラ"
+    },
+    {
+      "artists": ["Mrs. GREEN APPLE"],
+      "difficulty": "easy",
+      "prompt": "デビュー期の楽曲はどれ？",
+      "choices": ["ダンスホール", "StaRt", "ケセラセラ", "Magic"],
+      "answer": "StaRt"
+    },
+    {
+      "artists": ["Mrs. GREEN APPLE"],
+      "difficulty": "normal",
+      "prompt": "後期ミセスの楽曲はどれ？",
+      "choices": ["春愁", "インフェルノ", "ダンスホール", "Love me, Love you"],
+      "answer": "ダンスホール"
+    },
+    {
+      "artists": ["Mrs. GREEN APPLE"],
+      "difficulty": "normal",
+      "prompt": "「青と夏」より後にリリースされた曲はどれ？",
+      "choices": ["StaRt", "Love me, Love you", "インフェルノ", "サママ・フェスティバル！"],
+      "answer": "インフェルノ"
+    },
+
+    {
+      "artists": ["Mrs. GREEN APPLE"],
+      "difficulty": "easy",
+      "prompt": "アニメ『炎炎ノ消防隊』の主題歌はどれ？",
+      "choices": ["青と夏", "インフェルノ", "StaRt", "ダンスホール"],
+      "answer": "インフェルノ"
+    },
+    {
+      "artists": ["Mrs. GREEN APPLE"],
+      "difficulty": "easy",
+      "prompt": "映画の主題歌として使われた曲はどれ？",
+      "choices": ["サママ・フェスティバル！", "僕のこと", "WanteD! WanteD!", "umbrella"],
+      "answer": "僕のこと"
+    },
+    {
+      "artists": ["Mrs. GREEN APPLE"],
+      "difficulty": "easy",
+      "prompt": "NHK全国学校音楽コンクールの課題曲はどれ？",
+      "choices": ["ダンスホール", "僕のこと", "Magic", "青と夏"],
+      "answer": "僕のこと"
+    },
+    {
+      "artists": ["Mrs. GREEN APPLE"],
+      "difficulty": "normal",
+      "prompt": "テレビCMで話題になった曲はどれ？",
+      "choices": ["春愁", "ダンスホール", "橙", "アボイドノート"],
+      "answer": "ダンスホール"
+    },
+    {
+      "artists": ["Mrs. GREEN APPLE"],
+      "difficulty": "normal",
+      "prompt": "前向きなメッセージでCM起用された曲はどれ？",
+      "choices": ["春愁", "ケセラセラ", "umbrella", "クダリ"],
+      "answer": "ケセラセラ"
     }
   ]
 }
