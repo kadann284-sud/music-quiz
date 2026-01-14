@@ -55,7 +55,7 @@ label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 6px
   border-radius: 14px;
   padding: 12px 12px;
   outline: none;
-  font-size: 16px; /* iOSズーム回避 */
+  font-size: 16px;
 }
 
 .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; align-items: end; }
@@ -81,9 +81,7 @@ label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 6px
   border-color: rgba(255,107,107,.55);
   background: rgba(255,107,107,.12);
 }
-.btn.ghost {
-  background: rgba(0,0,0,.12);
-}
+.btn.ghost { background: rgba(0,0,0,.12); }
 .btn.wide { width: 100%; }
 .btn:disabled { opacity: .55; cursor: not-allowed; }
 
@@ -108,7 +106,7 @@ label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 6px
   margin-top: 10px;
 }
 
-/* ===== Cards (table -> cards) ===== */
+/* ===== Cards ===== */
 .cards{ display: grid; gap: 10px; }
 .cardRow{
   border: 1px solid var(--line);
@@ -141,7 +139,6 @@ label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 6px
   gap: 10px;
   margin-top: 10px;
 }
-.rankCell label{ margin: 0 0 6px; }
 .rankSel {
   width: 100%;
   min-height: var(--tap);
@@ -160,11 +157,7 @@ label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 6px
   padding: 8px 10px;
   background: rgba(0,0,0,.14);
 }
-.accordion summary{
-  cursor: pointer;
-  font-weight: 800;
-  color: var(--text);
-}
+.accordion summary{ cursor: pointer; font-weight: 800; color: var(--text); }
 
 /* ===== Common list ===== */
 .list { display: grid; gap: 8px; margin-top: 10px; }
@@ -180,12 +173,7 @@ label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 6px
 .item .name { font-weight: 900; }
 
 /* ===== Game HUD ===== */
-.gameTitle{ margin-bottom: 6px; }
-.topHUD{
-  display:flex;
-  gap: 10px;
-  margin-top: 8px;
-}
+.topHUD{ display:flex; gap: 10px; margin-top: 8px; }
 .scoreMini{
   flex:1;
   border: 1px solid var(--line);
@@ -253,7 +241,6 @@ label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 6px
   border: 1px solid var(--line);
   white-space: pre-wrap;
 }
-
 .qMedia{
   margin-top: 10px;
   padding: 12px;
@@ -323,11 +310,7 @@ label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 6px
 }
 .actionBar .flex1{ flex: 1; }
 
-/* =============================
-   追加：候補=青 / 登録済み=緑
-============================= */
-
-/* 候補（今回の10個） */
+/* ===== 色分け：候補=青 / 登録済み=緑 ===== */
 .cards-candidate .cardRow{
   background: linear-gradient(180deg, rgba(90,140,255,.22), rgba(40,80,180,.18));
   border: 1px solid rgba(90,140,255,.55);
@@ -339,7 +322,6 @@ label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 6px
   color: #cfe0ff;
 }
 
-/* 登録済み（履歴） */
 .cards-saved .cardRow{
   background: linear-gradient(180deg, rgba(90,200,140,.20), rgba(40,140,90,.18));
   border: 1px solid rgba(90,200,140,.55);

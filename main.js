@@ -65,7 +65,7 @@ const btnRestart = $("btnRestart");
 const RANK_VALUE = { A: 1, B: 2, C: 3, D: 4 };
 const RANKS = ["", "A", "B", "C", "D"];
 
-/* ランク定義（表示）をユーザー指定に */
+/* ランク定義（表示） */
 const RANK_LABELS = {
   "": "未選択",
   A: "A（ほぼすべて）",
@@ -79,7 +79,7 @@ const DIFF_SET_EASY = new Set(["C","D"]);
 const DIFF_ALLOWED = new Set(["easy","normal","hard"]);
 
 /* =========================
-   Candidate sources（ユーザー指定に差し替え済み）
+   Candidate sources（指定版）
 ========================= */
 const TOP_JROCK = [
   "Mrs. GREEN APPLE","RADWIMPS","Official髭男dism",
@@ -129,6 +129,7 @@ let app = {
     currentQ: null,
     topicArtist: null,
     roundResults: [{ answered: false, ok: false }, { answered: false, ok: false }],
+    introPhase: "none", // "none" | "play" | "p1" | "p2"（イントロ専用）
   }
 };
 
@@ -194,8 +195,6 @@ function readSetupBasics() {
 function generateCandidates10() {
   const top = shuffle([...new Set(TOP_JROCK)]);
   const more = shuffle([...new Set(MORE_JROCK)]);
-
-  // 有名多め：TOPから7 / MOREから3
   const merged = shuffle([...new Set([...top.slice(0, 7), ...more.slice(0, 3)])]).slice(0, 10);
 
   const pool = shuffle([...new Set([...TOP_JROCK, ...MORE_JROCK])]);
@@ -230,7 +229,7 @@ function makeRankSelect(currentValue, onChange) {
 
 function setGlobalSelection(artist, next) {
   app.globalSelections.set(artist, { ...next });
-  saveCache("mm_globalSelections_v8", Object.fromEntries(app.globalSelections.entries()));
+  saveCache("mm_globalSelections_v9", Object.fromEntries(app.globalSelections.entries()));
 }
 
 function renderCandidateCards() {
@@ -258,10 +257,8 @@ function renderCandidateCards() {
     const p1Cell = wrap.querySelector(`#c_p1_${idx}`);
     const p2Cell = wrap.querySelector(`#c_p2_${idx}`);
 
-    const l1 = document.createElement("label");
-    l1.textContent = p1;
-    const l2 = document.createElement("label");
-    l2.textContent = p2;
+    const l1 = document.createElement("label"); l1.textContent = p1;
+    const l2 = document.createElement("label"); l2.textContent = p2;
 
     const sel1 = makeRankSelect(cur.p1Rank, (v) => {
       const now = app.selectionsThis10.get(artist) || { p1Rank: "", p2Rank: "" };
@@ -316,10 +313,8 @@ function renderSavedCards() {
     const p1Cell = wrap.querySelector(`#s_p1_${idx}`);
     const p2Cell = wrap.querySelector(`#s_p2_${idx}`);
 
-    const l1 = document.createElement("label");
-    l1.textContent = p1;
-    const l2 = document.createElement("label");
-    l2.textContent = p2;
+    const l1 = document.createElement("label"); l1.textContent = p1;
+    const l2 = document.createElement("label"); l2.textContent = p2;
 
     const sel1 = makeRankSelect(v.p1Rank, (nv) => {
       const now = app.globalSelections.get(artist) || { p1Rank:"", p2Rank:"" };
@@ -378,7 +373,7 @@ function clearP2OnlyAllArtists() {
 
 function clearAllSaved() {
   app.globalSelections.clear();
-  saveCache("mm_globalSelections_v8", {});
+  saveCache("mm_globalSelections_v9", {});
   renderCandidateCards();
   renderSavedCards();
   setMsg(setupMsg, "登録済みを全消去しました。");
@@ -657,7 +652,7 @@ function startTimer(seconds, onTimeout) {
 }
 
 /* =========================
-   Scoring + difficulty
+   Difficulty + Scoring
 ========================= */
 function rankOf(playerIndex, topicArtist) {
   return playerIndex === 0 ? topicArtist.p1Rank : topicArtist.p2Rank;
@@ -665,12 +660,6 @@ function rankOf(playerIndex, topicArtist) {
 function rankValueOf(playerIndex, topicArtist) {
   const r = rankOf(playerIndex, topicArtist);
   return RANK_VALUE[r] ?? 1;
-}
-function pointsFor(playerIndex, topicArtist) {
-  const self = rankValueOf(playerIndex, topicArtist);
-  const opp = rankValueOf(1 - playerIndex, topicArtist);
-  const diff = Math.abs(self - opp);
-  return diff / 3 + 1;
 }
 function questionLevel(topicArtist) {
   const a = topicArtist.p1Rank;
@@ -681,6 +670,21 @@ function questionLevel(topicArtist) {
 }
 function levelJP(level){
   return level === "hard" ? "hard（マイナー寄り）" : level === "easy" ? "easy（有名寄り）" : "normal";
+}
+
+/* ★新スコア：正解した人だけ
+   高ランク（値が小さい）= +1
+   低ランク（値が大きい）= +1 + 差/3
+   同値 = +1
+*/
+function pointsFor(playerIndex, topicArtist) {
+  const self = rankValueOf(playerIndex, topicArtist);
+  const opp  = rankValueOf(1 - playerIndex, topicArtist);
+  const diff = Math.abs(self - opp);
+
+  if (self === opp) return 1;           // 同ランク
+  if (self < opp) return 1;             // 自分が高ランク（値が小さい）
+  return 1 + diff / 3;                  // 自分が低ランク（値が大きい）
 }
 
 /* =========================
@@ -809,7 +813,6 @@ async function makeQ_coverAlbumToTitle(topicArtist) {
     const artwork = album.artwork || al.artwork || (pack.tracks.find(t => t.artwork)?.artwork || "");
     if (!artwork) continue;
 
-    // ※アルバム名は書かない、は既に守れてる（promptにalbumName入れてない）
     return {
       kind: "cover_album_to_title",
       promptText: `【ジャケ写】このアルバムに入っている曲名はどれ？\nアーティスト：${topicArtist.label}\n（${levelJP(level)}）`,
@@ -831,7 +834,6 @@ async function buildRoundQuestionAsync() {
   for (let attempt = 0; attempt < 160; attempt++) {
     const topicArtist = pickRandom(commonPool);
 
-    // ★ここが「イントロのみ」「ミックス」切り替え
     const types = app.quizMode === "intro_only"
       ? ["intro_to_title", "intro_to_title", "intro_to_title"]
       : shuffle(["intro_to_title","cover_album_to_title","data_json","intro_to_title"]);
@@ -872,6 +874,7 @@ function startGame() {
   app.game.currentQ = null;
   app.game.topicArtist = null;
   app.game.roundResults = [{ answered:false, ok:false }, { answered:false, ok:false }];
+  app.game.introPhase = "none";
 
   sbP1.textContent = app.players[0].name;
   sbP2.textContent = app.players[1].name;
@@ -892,7 +895,7 @@ function showRoundHandoff() {
   if (timeBarFill) timeBarFill.style.transform = "scaleX(1)";
 
   turnBadge.textContent = `Round ${app.game.round + 1}`;
-  qMeta.textContent = `全${app.totalQ}ラウンド（同じ問題を2人が回答） / モード：${app.quizMode === "intro_only" ? "イントロのみ" : "ミックス"}`;
+  qMeta.textContent = `全${app.totalQ}ラウンド / モード：${app.quizMode === "intro_only" ? "イントロのみ" : "ミックス"}`;
 
   handoffTitle.textContent = `Round ${app.game.round + 1}：画面を隠して開始`;
   btnReveal.textContent = "問題を見る";
@@ -918,16 +921,25 @@ async function revealRound() {
 
   app.game.topicArtist = built.topicArtist;
   app.game.currentQ = built.q;
-  app.game.answerer = 0;
   app.game.roundResults = [{ answered:false, ok:false }, { answered:false, ok:false }];
+
+  // イントロだけ「再生→P1→P2」
+  app.game.introPhase = (app.game.currentQ.kind === "intro_to_title") ? "play" : "none";
+  app.game.answerer = 0;
 
   renderForAnswerer();
 }
 
 function renderForAnswerer() {
-  const ans = app.game.answerer;
   const q = app.game.currentQ;
   const topicArtist = app.game.topicArtist;
+
+  if (q.kind === "intro_to_title") {
+    return renderIntroPhases(topicArtist, q);
+  }
+
+  // それ以外は P1→P2（従来）
+  const ans = app.game.answerer;
 
   if (introAudio) { introAudio.pause(); introAudio = null; }
 
@@ -944,35 +956,13 @@ function renderForAnswerer() {
     qMedia.innerHTML = `<img src="${q.media.url}" alt="${escapeHtml(q.media.alt || "image")}" />`;
   }
 
-  if (q.media?.type === "intro" && q.media.previewUrl) {
-    qMedia.classList.remove("hidden");
-    qMedia.innerHTML = `
-      <div style="width:100%">
-        <button id="btnPlayIntro" class="btn primary wide">▶ イントロ再生（${q.media.seconds}秒）</button>
-        <div class="sub tiny" style="margin-top:8px">※何回でも再生OK</div>
-      </div>
-    `;
-    const btn = $("btnPlayIntro");
-    btn.onclick = async () => {
-      btn.disabled = true;
-      try {
-        await playIntro(q.media.previewUrl, q.media.seconds, q.media.startAt || 0);
-      } catch {
-        resultEl.className = "result bad";
-        resultEl.textContent = "再生に失敗…";
-      } finally {
-        btn.disabled = false;
-      }
-    };
-  }
-
   const level = questionLevel(topicArtist);
   const selfV = rankValueOf(ans, topicArtist);
   const oppV  = rankValueOf(1 - ans, topicArtist);
   const diff  = Math.abs(selfV - oppV);
   const pts   = pointsFor(ans, topicArtist);
 
-  phaseLine.textContent = `${app.players[ans].name} が回答（P1後は正解表示あり）`;
+  phaseLine.textContent = `${app.players[ans].name} が回答`;
   rankLine.textContent =
     `トピック：${topicArtist.label} / 自分:${rankOf(ans, topicArtist)}(${selfV}) 相手:${rankOf(1-ans, topicArtist)}(${oppV}) 差=${diff} → 正解 +${fmtScore(pts)}点 / 出題:${levelJP(level)}`;
 
@@ -996,10 +986,110 @@ function renderForAnswerer() {
   startTimer(app.timeLimit, () => onTimeout());
 }
 
+/* ===== イントロ：再生→P1→P2 ===== */
+function renderIntroPhases(topicArtist, q) {
+  const phase = app.game.introPhase; // "play"|"p1"|"p2"
+
+  turnBadge.textContent = `Round ${app.game.round + 1}`;
+  qMeta.textContent = `イントロ問題：再生 → ${app.players[0].name} → ${app.players[1].name}`;
+
+  qText.textContent = q.promptText;
+
+  qMedia.classList.remove("hidden");
+  qMedia.innerHTML = `<div style="width:100%" id="introArea"></div>`;
+  const introArea = $("introArea");
+
+  choicesEl.innerHTML = "";
+  resultEl.className = "result";
+  resultEl.textContent = "";
+
+  stopTimer();
+  timeLeftEl.textContent = "--";
+  if (timeBarFill) timeBarFill.style.transform = "scaleX(1)";
+
+  if (phase === "play") {
+    phaseLine.textContent = "イントロ再生フェーズ（まだ回答しない）";
+    rankLine.textContent = `再生が終わったら ${app.players[0].name} が回答`;
+
+    timerNoteEl.textContent = "イントロ再生中（回答フェーズ前）";
+
+    introArea.innerHTML = `
+      <button id="btnPlayIntroOnce" class="btn primary wide">▶ イントロ再生（${q.media.seconds}秒）</button>
+      <div class="sub tiny" style="margin-top:8px">※このフェーズでは選択肢を出しません</div>
+    `;
+    $("btnPlayIntroOnce").onclick = async () => {
+      const btn = $("btnPlayIntroOnce");
+      btn.disabled = true;
+      try {
+        await playIntro(q.media.previewUrl, q.media.seconds, q.media.startAt || 0);
+      } catch {
+        resultEl.className = "result bad";
+        resultEl.textContent = "再生に失敗…";
+        btn.disabled = false;
+        return;
+      }
+      app.game.introPhase = "p1";
+      app.game.answerer = 0;
+      renderIntroPhases(topicArtist, q);
+    };
+
+    btnNextPlayer.disabled = true;
+    btnNextRound.disabled = true;
+    btnNextPlayer.classList.remove("hidden");
+    btnNextRound.classList.add("hidden");
+    return;
+  }
+
+  const ans = (phase === "p1") ? 0 : 1;
+  app.game.answerer = ans;
+
+  const level = questionLevel(topicArtist);
+  const selfV = rankValueOf(ans, topicArtist);
+  const oppV  = rankValueOf(1 - ans, topicArtist);
+  const diff  = Math.abs(selfV - oppV);
+  const pts   = pointsFor(ans, topicArtist);
+
+  phaseLine.textContent = `${app.players[ans].name} が回答`;
+  rankLine.textContent =
+    `トピック：${topicArtist.label} / 自分:${rankOf(ans, topicArtist)}(${selfV}) 相手:${rankOf(1-ans, topicArtist)}(${oppV}) 差=${diff} → 正解 +${fmtScore(pts)}点 / 出題:${levelJP(level)}`;
+
+  timerNoteEl.textContent = app.timeLimit > 0 ? `制限時間：${app.timeLimit}s` : "制限時間：なし";
+
+  introArea.innerHTML = `
+    <button id="btnReplayIntro" class="btn wide">▶ もう一度聞く（${q.media.seconds}秒）</button>
+    <div class="sub tiny" style="margin-top:8px">※回答中でも再生OK</div>
+  `;
+  $("btnReplayIntro").onclick = async () => {
+    const btn = $("btnReplayIntro");
+    btn.disabled = true;
+    try {
+      await playIntro(q.media.previewUrl, q.media.seconds, q.media.startAt || 0);
+    } finally {
+      btn.disabled = false;
+    }
+  };
+
+  q.choices.forEach(ch => {
+    const b = document.createElement("button");
+    b.className = "choiceBtn";
+    b.textContent = ch;
+    b.onclick = () => answerChoiceIntro(ch);
+    choicesEl.appendChild(b);
+  });
+
+  btnNextPlayer.disabled = true;
+  btnNextRound.disabled = true;
+  btnNextPlayer.classList.remove("hidden");
+  btnNextRound.classList.add("hidden");
+
+  startTimer(app.timeLimit, () => onTimeoutIntro());
+}
+
 function lockChoices() {
   choicesEl.querySelectorAll("button").forEach(b => b.disabled = true);
 }
 
+/* ===== 通常問題：タイムアウト/回答 ===== */
 function onTimeout() {
   const ans = app.game.answerer;
   app.game.roundResults[ans] = { answered: true, ok: false };
@@ -1044,6 +1134,53 @@ function answerChoice(choice) {
   }
 }
 
+/* ===== イントロ問題：タイムアウト/回答 ===== */
+function onTimeoutIntro() {
+  const ans = app.game.answerer;
+  app.game.roundResults[ans] = { answered: true, ok: false };
+
+  lockChoices();
+  if (introAudio) { introAudio.pause(); introAudio = null; }
+
+  const q = app.game.currentQ;
+  resultEl.className = "result bad";
+  resultEl.textContent = `⏱ 時間切れ… 正解は「${q.correct}」`;
+
+  if (ans === 0) btnNextPlayer.disabled = false;
+  else {
+    btnNextPlayer.classList.add("hidden");
+    btnNextRound.classList.remove("hidden");
+    btnNextRound.disabled = false;
+  }
+}
+
+function answerChoiceIntro(choice) {
+  stopTimer();
+
+  const ans = app.game.answerer;
+  const q = app.game.currentQ;
+
+  const ok = String(choice) === String(q.correct);
+  app.game.roundResults[ans] = { answered: true, ok };
+
+  lockChoices();
+  if (introAudio) { introAudio.pause(); introAudio = null; }
+
+  resultEl.className = ok ? "result good" : "result bad";
+  resultEl.textContent = ok
+    ? `✅ 正解！ 正解は「${q.correct}」`
+    : `❌ 不正解… 正解は「${q.correct}」`;
+
+  if (ans === 0) {
+    btnNextPlayer.disabled = false;
+  } else {
+    btnNextPlayer.classList.add("hidden");
+    btnNextRound.classList.remove("hidden");
+    btnNextRound.disabled = false;
+  }
+}
+
+/* ===== 引き継ぎ（P2ネタバレ防止） ===== */
 function nextToP2() {
   stopTimer();
   if (introAudio) { introAudio.pause(); introAudio = null; }
@@ -1056,6 +1193,7 @@ function nextToP2() {
   qBox.classList.add("hidden");
 }
 
+/* ===== ラウンド加点＋次 ===== */
 function applyRoundScoreAndNext() {
   stopTimer();
   if (introAudio) { introAudio.pause(); introAudio = null; }
@@ -1075,6 +1213,7 @@ function applyRoundScoreAndNext() {
   app.game.round++;
   app.game.currentQ = null;
   app.game.topicArtist = null;
+  app.game.introPhase = "none";
   btnReveal.textContent = "問題を見る";
 
   if (app.game.round >= app.totalQ) {
@@ -1121,27 +1260,35 @@ btnClearP2Only.onclick = () => clearP2OnlyAllArtists();
 btnClearAllSaved.onclick = () => clearAllSaved();
 btnBuildCommon.onclick = () => buildCommon();
 
-btnBackToSetup.onclick = () => {
-  setMsg(commonMsg, "");
-  show(setupEl);
-};
-
-btnFetchData.onclick = async () => {
-  btnFetchData.disabled = true;
-  try { await fetchDataForCommon(); }
-  finally { btnFetchData.disabled = false; }
-};
+btnBackToSetup.onclick = () => { setMsg(commonMsg, ""); show(setupEl); };
+btnFetchData.onclick = async () => { btnFetchData.disabled = true; try { await fetchDataForCommon(); } finally { btnFetchData.disabled = false; } };
 
 btnReveal.onclick = async () => {
   if (!app.game.currentQ) await revealRound();
   else {
     handoff.classList.add("hidden");
     qBox.classList.remove("hidden");
-    renderForAnswerer();
+
+    // P2引き継ぎ後の再表示
+    if (app.game.currentQ.kind === "intro_to_title") {
+      if (app.game.answerer === 1 && app.game.introPhase === "p1") app.game.introPhase = "p2";
+      renderForAnswerer();
+    } else {
+      renderForAnswerer();
+    }
   }
 };
 
 btnNextPlayer.onclick = () => {
+  // イントロの場合：P1終了→P2へ
+  if (app.game.currentQ?.kind === "intro_to_title") {
+    if (app.game.answerer === 0) {
+      app.game.introPhase = "p2";
+      nextToP2();
+    }
+    return;
+  }
+
   if (app.game.answerer === 0) nextToP2();
 };
 
@@ -1160,7 +1307,7 @@ btnRestart.onclick = () => {
 (async function init(){
   show(setupEl);
 
-  const raw = loadCache("mm_globalSelections_v8", {});
+  const raw = loadCache("mm_globalSelections_v9", {});
   app.globalSelections = new Map(Object.entries(raw).map(([k, v]) => [k, v || {p1Rank:"", p2Rank:""}]));
 
   readSetupBasics();

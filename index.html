@@ -3,14 +3,15 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>music-match アーティスト対戦（スマホ最適化）</title>
+  <title>music-match アーティスト対戦</title>
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
   <header class="app-header">
     <h1>music-match：共通アーティスト対戦</h1>
     <p class="sub">
-      1台端末 / 同じ問題を2人が解く / 4択 / ランク差で加点：|差|÷3+1
+      1台端末 / 同じ問題を2人が解く / 4択 / イントロは「再生→P1→P2」<br>
+      点数：正解した人だけ（高ランク側+1点 / 低ランク側+1点+差÷3）
     </p>
   </header>
 
@@ -18,7 +19,7 @@
 
     <!-- ===== Setup ===== -->
     <section id="setup" class="card">
-      <h2>1) アーティスト登録（スマホ向け）</h2>
+      <h2>1) アーティスト登録</h2>
 
       <div class="row">
         <div class="small">
@@ -62,8 +63,8 @@
 
       <div class="hint">
         <p class="sub">
-          ランク値：A=1, B=2, C=3, D=4<br/>
-          正解加点：|差|÷3+1（差＝そのアーティストに対する両者ランク差）<br/>
+          ランク値：A=1, B=2, C=3, D=4（数が小さいほど“聴いてる”＝高ランク）<br>
+          正解加点：高ランク側 +1 / 低ランク側 +1 + (差÷3)（同ランクなら +1）<br>
           出題難易度：両者A/B→hard優先、両者C/D→easy優先（data.jsonも同様）
         </p>
       </div>
