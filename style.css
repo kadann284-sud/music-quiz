@@ -135,7 +135,8 @@ label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 6px
 }
 .rankGrid{
   display:grid;
-  grid-template-columns: 1fr 1fr;
+  /* プレイヤー数に応じて自動で列数を増やす */
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 10px;
   margin-top: 10px;
 }
@@ -173,7 +174,12 @@ label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 6px
 .item .name { font-weight: 900; }
 
 /* ===== Game HUD ===== */
-.topHUD{ display:flex; gap: 10px; margin-top: 8px; }
+.topHUD{ 
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
 .scoreMini{
   flex:1;
   border: 1px solid var(--line);
