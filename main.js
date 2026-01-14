@@ -64,38 +64,41 @@ const btnRestart = $("btnRestart");
 /* ===== Constants ===== */
 const RANK_VALUE = { A: 1, B: 2, C: 3, D: 4 };
 const RANKS = ["", "A", "B", "C", "D"];
+
+/* ランク定義（表示）をユーザー指定に */
 const RANK_LABELS = {
   "": "未選択",
-  A: "A（ほぼ完璧）",
-  B: "B（結構）",
-  C: "C（知ってる）",
-  D: "D（少し）",
+  A: "A（ほぼすべて）",
+  B: "B（30曲～）",
+  C: "C（15曲～30曲）",
+  D: "D（5曲～10曲）",
 };
 
 const DIFF_SET_HARD = new Set(["A","B"]);
 const DIFF_SET_EASY = new Set(["C","D"]);
 const DIFF_ALLOWED = new Set(["easy","normal","hard"]);
 
-/* ===== Candidate sources ===== */
+/* =========================
+   Candidate sources（ユーザー指定に差し替え済み）
+========================= */
 const TOP_JROCK = [
-  "Mrs. GREEN APPLE","RADWIMPS","BUMP OF CHICKEN","ONE OK ROCK","Official髭男dism",
-  "back number","King Gnu","SEKAI NO OWARI","サカナクション","スピッツ",
-  "ASIAN KUNG-FU GENERATION","UVERworld","WANIMA","sumika","[Alexandros]",
-  "THE ORAL CIGARETTES","MAN WITH A MISSION","マカロニえんぴつ","Saucy Dog",
-  "SUPER BEAVER","04 Limited Sazabys","クリープハイプ","KANA-BOON","BLUE ENCOUNT",
-  "フレデリック","My Hair is Bad","SHISHAMO","ヨルシカ","YOASOBI","Vaundy"
+  "Mrs. GREEN APPLE","RADWIMPS","Official髭男dism",
+  "back number","SEKAI NO OWARI",
+  "sumika","THE ORAL CIGARETTES","MAN WITH A MISSION","マカロニえんぴつ","Saucy Dog",
+  "SUPER BEAVER","04 Limited Sazabys","クリープハイプ","BLUE ENCOUNT",
+  "フレデリック","My Hair is Bad","SHISHAMO","ヨルシカ","YOASOBI","Vaundy",
+  "優里","米津玄師","GReeeeN","Tani Yuuki","imase"
 ];
 
 const MORE_JROCK = [
-  "ヤバイTシャツ屋さん","UNISON SQUARE GARDEN","ELLEGARDEN","ゲスの極み乙女",
-  "indigo la End","KEYTALK","Kroi","Nulbarich","Novelbright","緑黄色社会",
-  "Awesome City Club","10-FEET","Dragon Ash","ポルカドットスティングレイ",
-  "wacci","ねぐせ。","ハルカミライ","ヤングスキニー","My First Story","SPYAIR",
+  "ヤバイTシャツ屋さん",
+  "indigo la End","Novelbright","緑黄色社会",
+  "10-FEET","ねぐせ。","ハルカミライ","ヤングスキニー","SPYAIR",
 
   "プッシュプルポット","Arakezuri","bokula.","Maki","至福ぽんちょ","Atomic Skipper","Blue Mash",
-  "This is Last","ハンブレッターズ","Siip","マルシィ","NELKE","go!go!vanillas","Tele","Chevon",
+  "This is Last","ハンブレッターズ","マルシィ","NELKE","go!go!vanillas","Tele","Chevon",
   "トンボコープ","レトロリロン","reGretGirl","サバシスター","UNFAIR RULE","NEE","the shes gone",
-  "WurtS","moon drop","Fish and Lips"
+  "WurtS","moon drop","Fish and Lips","35.7","coldrain","Hump Back","Creepy Nuts"
 ];
 
 /* =========================
@@ -106,6 +109,7 @@ let app = {
   totalQ: 12,
   introLen: 5,
   timeLimit: 10,
+  quizMode: "mix", // intro_only / mix
 
   candidates: [],
   selectionsThis10: new Map(),
@@ -176,6 +180,7 @@ function readSetupBasics() {
   app.players[1].name = p2Name;
 
   app.totalQ = clamp(parseInt($("totalQ").value, 10) || 12, 3, 50);
+  app.quizMode = $("quizMode")?.value || "mix";
   app.introLen = clamp(parseInt($("introLen")?.value ?? 5, 10) || 5, 1, 15);
   app.timeLimit = clamp(parseInt($("timeLimit")?.value ?? 10, 10) || 0, 0, 120);
 
@@ -189,6 +194,8 @@ function readSetupBasics() {
 function generateCandidates10() {
   const top = shuffle([...new Set(TOP_JROCK)]);
   const more = shuffle([...new Set(MORE_JROCK)]);
+
+  // 有名多め：TOPから7 / MOREから3
   const merged = shuffle([...new Set([...top.slice(0, 7), ...more.slice(0, 3)])]).slice(0, 10);
 
   const pool = shuffle([...new Set([...TOP_JROCK, ...MORE_JROCK])]);
@@ -223,7 +230,7 @@ function makeRankSelect(currentValue, onChange) {
 
 function setGlobalSelection(artist, next) {
   app.globalSelections.set(artist, { ...next });
-  saveCache("mm_globalSelections_v7", Object.fromEntries(app.globalSelections.entries()));
+  saveCache("mm_globalSelections_v8", Object.fromEntries(app.globalSelections.entries()));
 }
 
 function renderCandidateCards() {
@@ -371,7 +378,7 @@ function clearP2OnlyAllArtists() {
 
 function clearAllSaved() {
   app.globalSelections.clear();
-  saveCache("mm_globalSelections_v7", {});
+  saveCache("mm_globalSelections_v8", {});
   renderCandidateCards();
   renderSavedCards();
   setMsg(setupMsg, "登録済みを全消去しました。");
@@ -789,6 +796,7 @@ async function makeQ_coverAlbumToTitle(topicArtist) {
 
     const correct = pickRandom(album.trackNames);
 
+    // 選択肢：同一アーティストの「そのアルバム以外の曲」から
     const allArtistSongs = (pack.tracks || []).map(t => t.name).filter(Boolean);
     const exclude = new Set(album.trackNames.map(normalizeKey));
     const candidates = [...new Set(allArtistSongs)]
@@ -801,6 +809,7 @@ async function makeQ_coverAlbumToTitle(topicArtist) {
     const artwork = album.artwork || al.artwork || (pack.tracks.find(t => t.artwork)?.artwork || "");
     if (!artwork) continue;
 
+    // ※アルバム名は書かない、は既に守れてる（promptにalbumName入れてない）
     return {
       kind: "cover_album_to_title",
       promptText: `【ジャケ写】このアルバムに入っている曲名はどれ？\nアーティスト：${topicArtist.label}\n（${levelJP(level)}）`,
@@ -813,7 +822,7 @@ async function makeQ_coverAlbumToTitle(topicArtist) {
 }
 
 /* =========================
-   Build a round question (mix)
+   Build a round question (mix / intro_only)
 ========================= */
 async function buildRoundQuestionAsync() {
   const commonPool = app.common.slice();
@@ -822,12 +831,10 @@ async function buildRoundQuestionAsync() {
   for (let attempt = 0; attempt < 160; attempt++) {
     const topicArtist = pickRandom(commonPool);
 
-    const types = shuffle([
-      "intro_to_title",
-      "cover_album_to_title",
-      "data_json",
-      "intro_to_title"
-    ]);
+    // ★ここが「イントロのみ」「ミックス」切り替え
+    const types = app.quizMode === "intro_only"
+      ? ["intro_to_title", "intro_to_title", "intro_to_title"]
+      : shuffle(["intro_to_title","cover_album_to_title","data_json","intro_to_title"]);
 
     let q = null;
 
@@ -885,7 +892,7 @@ function showRoundHandoff() {
   if (timeBarFill) timeBarFill.style.transform = "scaleX(1)";
 
   turnBadge.textContent = `Round ${app.game.round + 1}`;
-  qMeta.textContent = `全${app.totalQ}ラウンド（同じ問題を2人が回答）`;
+  qMeta.textContent = `全${app.totalQ}ラウンド（同じ問題を2人が回答） / モード：${app.quizMode === "intro_only" ? "イントロのみ" : "ミックス"}`;
 
   handoffTitle.textContent = `Round ${app.game.round + 1}：画面を隠して開始`;
   btnReveal.textContent = "問題を見る";
@@ -965,7 +972,7 @@ function renderForAnswerer() {
   const diff  = Math.abs(selfV - oppV);
   const pts   = pointsFor(ans, topicArtist);
 
-  phaseLine.textContent = `${app.players[ans].name} が回答`;
+  phaseLine.textContent = `${app.players[ans].name} が回答（P1後は正解表示あり）`;
   rankLine.textContent =
     `トピック：${topicArtist.label} / 自分:${rankOf(ans, topicArtist)}(${selfV}) 相手:${rankOf(1-ans, topicArtist)}(${oppV}) 差=${diff} → 正解 +${fmtScore(pts)}点 / 出題:${levelJP(level)}`;
 
@@ -1153,7 +1160,7 @@ btnRestart.onclick = () => {
 (async function init(){
   show(setupEl);
 
-  const raw = loadCache("mm_globalSelections_v7", {});
+  const raw = loadCache("mm_globalSelections_v8", {});
   app.globalSelections = new Map(Object.entries(raw).map(([k, v]) => [k, v || {p1Rank:"", p2Rank:""}]));
 
   readSetupBasics();

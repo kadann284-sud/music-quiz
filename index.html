@@ -10,7 +10,7 @@
   <header class="app-header">
     <h1>music-match：共通アーティスト対戦</h1>
     <p class="sub">
-      1台端末 / 同じ問題を2人が解く / 4択のみ / ランク差で加点：|差|÷3+1
+      1台端末 / 同じ問題を2人が解く / 4択 / ランク差で加点：|差|÷3+1
     </p>
   </header>
 
@@ -36,6 +36,15 @@
           <label>ラウンド数</label>
           <input id="totalQ" class="input smallInput" type="number" min="3" value="12" />
         </div>
+
+        <div class="small">
+          <label>出題モード</label>
+          <select id="quizMode" class="input smallInput">
+            <option value="intro_only">イントロのみ</option>
+            <option value="mix" selected>イントロ＋他の問題（ジャケ写 / data.json）</option>
+          </select>
+        </div>
+
         <div class="small">
           <label>イントロ秒数</label>
           <select id="introLen" class="input smallInput">
@@ -44,6 +53,7 @@
             <option value="3">3秒</option>
           </select>
         </div>
+
         <div class="small">
           <label>制限時間（0で無効）</label>
           <input id="timeLimit" class="input smallInput" type="number" min="0" value="10" />
@@ -66,13 +76,13 @@
       </div>
 
       <h3 class="h3">今回の候補（10個）</h3>
-      <div id="candidateCards" class="cards"></div>
+      <div id="candidateCards" class="cards cards-candidate"></div>
 
       <h3 class="h3">登録済み（蓄積）</h3>
       <div class="sub" id="savedSummary"></div>
       <details class="accordion" open>
         <summary>登録済み一覧を開く/閉じる</summary>
-        <div id="savedCards" class="cards"></div>
+        <div id="savedCards" class="cards cards-saved"></div>
       </details>
 
       <div class="row">

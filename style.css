@@ -322,3 +322,31 @@ label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 6px
   z-index: 50;
 }
 .actionBar .flex1{ flex: 1; }
+
+/* =============================
+   追加：候補=青 / 登録済み=緑
+============================= */
+
+/* 候補（今回の10個） */
+.cards-candidate .cardRow{
+  background: linear-gradient(180deg, rgba(90,140,255,.22), rgba(40,80,180,.18));
+  border: 1px solid rgba(90,140,255,.55);
+}
+.cards-candidate .artistName{ color: #e8f0ff; }
+.cards-candidate .badgeMini{
+  background: rgba(90,140,255,.18);
+  border-color: rgba(90,140,255,.45);
+  color: #cfe0ff;
+}
+
+/* 登録済み（履歴） */
+.cards-saved .cardRow{
+  background: linear-gradient(180deg, rgba(90,200,140,.20), rgba(40,140,90,.18));
+  border: 1px solid rgba(90,200,140,.55);
+}
+.cards-saved .artistName{ color: #e9fff1; }
+.cards-saved .badgeMini{
+  background: rgba(90,200,140,.18);
+  border-color: rgba(90,200,140,.45);
+  color: #d6ffe8;
+}
