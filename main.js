@@ -59,6 +59,7 @@ const btnRestart = $("btnRestart");
 /* ===== Constants ===== */
 const RANK_VALUE = { A: 1, B: 2, C: 3, D: 4 };
 const RANKS = ["", "A", "B", "C", "D"];
+
 const RANK_LABELS = {
   "": "未選択",
   A: "A（ほぼすべて）",
@@ -72,25 +73,26 @@ const DIFF_SET_EASY = new Set(["C", "D"]);
 const DIFF_ALLOWED = new Set(["easy", "normal", "hard"]);
 
 /* =========================
-   Candidate sources（指定版）
+   Candidate sources
 ========================= */
 const TOP_JROCK = [
-  "Mrs. GREEN APPLE", "RADWIMPS", "Official髭男dism",
-  "back number", "SEKAI NO OWARI",
-  "sumika", "THE ORAL CIGARETTES", "MAN WITH A MISSION", "マカロニえんぴつ", "Saucy Dog",
-  "SUPER BEAVER", "04 Limited Sazabys", "クリープハイプ", "BLUE ENCOUNT",
-  "フレデリック", "My Hair is Bad", "SHISHAMO", "ヨルシカ", "YOASOBI", "Vaundy",
-  "優里", "米津玄師", "GReeeeN", "Tani Yuuki", "imase"
+  "Mrs. GREEN APPLE","RADWIMPS","Official髭男dism",
+  "back number","SEKAI NO OWARI",
+  "sumika","THE ORAL CIGARETTES","MAN WITH A MISSION","マカロニえんぴつ","Saucy Dog",
+  "SUPER BEAVER","04 Limited Sazabys","クリープハイプ","BLUE ENCOUNT",
+  "フレデリック","My Hair is Bad","SHISHAMO","ヨルシカ","YOASOBI","Vaundy",
+  "優里","米津玄師","GReeeeN","Tani Yuuki","imase"
 ];
 
 const MORE_JROCK = [
   "ヤバイTシャツ屋さん",
-  "indigo la End", "Novelbright", "緑黄色社会",
-  "10-FEET", "ねぐせ。", "ハルカミライ", "ヤングスキニー", "SPYAIR",
-  "プッシュプルポット", "Arakezuri", "bokula.", "Maki", "至福ぽんちょ", "Atomic Skipper", "Blue Mash",
-  "This is Last", "ハンブレッターズ", "マルシィ", "NELKE", "go!go!vanillas", "Tele", "Chevon",
-  "トンボコープ", "レトロリロン", "reGretGirl", "サバシスター", "UNFAIR RULE", "NEE", "the shes gone",
-  "WurtS", "moon drop", "Fish and Lips", "35.7", "coldrain", "Hump Back", "Creepy Nuts"
+  "indigo la End","Novelbright","緑黄色社会",
+  "10-FEET","ねぐせ。","ハルカミライ","ヤングスキニー","SPYAIR",
+
+  "プッシュプルポット","Arakezuri","bokula.","Maki","至福ぽんちょ","Atomic Skipper","Blue Mash",
+  "This is Last","ハンブレッターズ","マルシィ","NELKE","go!go!vanillas","Tele","Chevon",
+  "トンボコープ","レトロリロン","reGretGirl","サバシスター","UNFAIR RULE","NEE","the shes gone",
+  "WurtS","moon drop","Fish and Lips","35.7","coldrain","Hump Back","Creepy Nuts"
 ];
 
 /* =========================
@@ -115,13 +117,13 @@ let app = {
 
   game: {
     round: 0,
-    currentPlayer: 0,
+    answerer: 0,
     score: [],
     usedSig: new Set(),
     currentQ: null,
     topicArtist: null,
-    roundResults: [], // {answered, ok}
-    introPhase: "none", // none | play | answer
+    roundResults: [],
+    introPhase: "none", // "none" | "play" | "answer"
   }
 };
 
@@ -136,6 +138,7 @@ function show(section) {
   section.classList.remove("hidden");
 }
 function setMsg(el, text) { el.textContent = text || ""; }
+
 function shuffle(arr) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -146,93 +149,90 @@ function shuffle(arr) {
 }
 function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+
 function escapeHtml(s) {
   return (s || "").replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
   }[c]));
 }
-function normalizeKey(s) {
+
+function normalizeKey(s){
   return (s || "")
     .toLowerCase()
-    .replace(/\s+/g, "")
-    .replace(/[・･’'".\-‐-–—_]/g, "")
+    .replace(/\s+/g,"")
+    .replace(/[・･’'".\-‐-–—_]/g,"")
     .normalize("NFKC");
 }
+
 function loadCache(key, fallback) {
   try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
   catch { return fallback; }
 }
 function saveCache(key, value) {
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch { }
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
 }
-function fmtScore(x) { return (Math.round(x * 10) / 10).toFixed(1); }
+function fmtScore(x){ return (Math.round(x * 10) / 10).toFixed(1); }
 
 /* =========================
-   Players UI
+   Players (dynamic 2-6)
 ========================= */
-function getPlayerCountInput() {
-  const v = parseInt($("playerCount")?.value ?? "3", 10) || 3;
-  return clamp(v, 3, 6);
-}
+function rebuildPlayerInputs(defaultNames = []) {
+  const n = clamp(parseInt($("playerCount").value, 10) || 2, 2, 6);
+  $("playerCount").value = String(n);
 
-function rebuildPlayerInputs(names) {
-  const n = getPlayerCountInput();
   const area = $("playerInputs");
   area.innerHTML = "";
 
   for (let i = 0; i < n; i++) {
     const wrap = document.createElement("div");
     wrap.className = "small";
-    wrap.innerHTML = `<label>プレイヤー${i + 1} 名前</label>`;
-
-    const input = document.createElement("input");
-    input.className = "input";
-    input.value = (names && names[i]) ? names[i] : `P${i + 1}`;
-    input.dataset.playerIndex = String(i);
-
-    wrap.appendChild(input);
+    wrap.innerHTML = `
+      <label>プレイヤー${i+1} 名前</label>
+      <input class="input" data-player-index="${i}" value="${escapeHtml(defaultNames[i] || `P${i+1}`)}" />
+    `;
     area.appendChild(wrap);
   }
 }
 
 function readSetupBasics() {
-  // players
-  const n = getPlayerCountInput();
+  const n = clamp(parseInt($("playerCount").value, 10) || 2, 2, 6);
+
   const nameInputs = [...document.querySelectorAll("#playerInputs input[data-player-index]")];
-  const names = [];
-  for (let i = 0; i < n; i++) {
-    const v = (nameInputs[i]?.value || `P${i + 1}`).trim() || `P${i + 1}`;
-    names.push(v);
-  }
+  const names = nameInputs.slice(0, n).map((x, i) => (x.value || "").trim() || `P${i+1}`);
 
   app.players = names.map(name => ({ name }));
+  app.game.score = Array.from({ length: n }, () => 0.0);
 
-  app.totalQ = clamp(parseInt($("totalQ")?.value ?? "12", 10) || 12, 3, 50);
-  app.quizMode = $("quizMode")?.value || "mix";
-  app.introLen = clamp(parseInt($("introLen")?.value ?? "5", 10) || 5, 1, 15);
-  app.timeLimit = clamp(parseInt($("timeLimit")?.value ?? "10", 10) || 0, 0, 120);
-
-  // cache player settings
   saveCache("mm_players_v1", { count: n, names });
 
-  // make sure game score length
-  if (!Array.isArray(app.game.score) || app.game.score.length !== n) {
-    app.game.score = Array.from({ length: n }, () => 0.0);
-  }
+  app.totalQ = clamp(parseInt($("totalQ").value, 10) || 12, 3, 50);
+  app.quizMode = $("quizMode")?.value || "mix";
+  app.introLen = clamp(parseInt($("introLen")?.value ?? 5, 10) || 5, 1, 15);
+  app.timeLimit = clamp(parseInt($("timeLimit")?.value ?? 10, 10) || 0, 0, 120);
 
   renderScoreboard();
 }
 
+/* =========================
+   Scoreboard UI
+========================= */
 function renderScoreboard() {
   sbWrap.innerHTML = "";
-  app.players.forEach((p, i) => {
+  app.players.forEach((p, idx) => {
     const card = document.createElement("div");
     card.className = "scoreMini";
     card.innerHTML = `
       <div class="miniName">${escapeHtml(p.name)}</div>
-      <div class="miniScore" id="sbScore_${i}">${fmtScore(app.game.score[i] || 0)}</div>
+      <div class="miniScore" id="sbScore_${idx}">${fmtScore(app.game.score?.[idx] ?? 0)}</div>
     `;
     sbWrap.appendChild(card);
+  });
+}
+
+function updateScoreboard() {
+  app.players.forEach((_, idx) => {
+    const el = $(`sbScore_${idx}`);
+    if (el) el.textContent = fmtScore(app.game.score[idx] || 0);
   });
 }
 
@@ -255,7 +255,6 @@ function generateCandidates10() {
 function ensureSelectionsThis10() {
   app.selectionsThis10.clear();
   const n = app.players.length;
-
   for (const artist of app.candidates) {
     const saved = app.globalSelections.get(artist) || { ranks: Array.from({ length: n }, () => "") };
     const ranks = Array.from({ length: n }, (_, i) => saved.ranks?.[i] || "");
@@ -282,45 +281,56 @@ function setGlobalSelection(artist, next) {
   saveCache("mm_globalSelections_v10", Object.fromEntries(app.globalSelections.entries()));
 }
 
+function renderRankGrid(artist, curRanks, onChangeRank) {
+  const grid = document.createElement("div");
+  grid.className = "rankGrid";
+
+  app.players.forEach((p, i) => {
+    const cell = document.createElement("div");
+    cell.className = "rankCell";
+
+    const lab = document.createElement("label");
+    lab.textContent = p.name;
+
+    const sel = makeRankSelect(curRanks[i] || "", (v) => onChangeRank(i, v));
+
+    cell.appendChild(lab);
+    cell.appendChild(sel);
+    grid.appendChild(cell);
+  });
+
+  return grid;
+}
+
 function renderCandidateCards() {
   candidateCards.innerHTML = "";
-  const n = app.players.length;
 
   app.candidates.forEach((artist, idx) => {
+    const n = app.players.length;
     const cur = app.selectionsThis10.get(artist) || { ranks: Array.from({ length: n }, () => "") };
 
     const wrap = document.createElement("div");
     wrap.className = "cardRow";
-    wrap.innerHTML = `
-      <div class="cardTop">
-        <div class="artistName">${escapeHtml(artist)}</div>
-        <div class="badgeMini">候補 ${idx + 1}/10</div>
-      </div>
-      <div class="rankGrid" style="grid-template-columns: repeat(${n}, minmax(140px, 1fr));" id="candGrid_${idx}"></div>
+
+    const top = document.createElement("div");
+    top.className = "cardTop";
+    top.innerHTML = `
+      <div class="artistName">${escapeHtml(artist)}</div>
+      <div class="badgeMini">候補 ${idx+1}/10</div>
     `;
+    wrap.appendChild(top);
+
+    const grid = renderRankGrid(artist, cur.ranks, (playerIndex, v) => {
+      const now = app.selectionsThis10.get(artist) || { ranks: Array.from({ length: n }, () => "") };
+      const nextRanks = [...now.ranks];
+      nextRanks[playerIndex] = v;
+      app.selectionsThis10.set(artist, { ranks: nextRanks });
+      setGlobalSelection(artist, { ranks: nextRanks });
+      renderSavedCards();
+    });
+    wrap.appendChild(grid);
+
     candidateCards.appendChild(wrap);
-
-    const grid = wrap.querySelector(`#candGrid_${idx}`);
-
-    for (let pi = 0; pi < n; pi++) {
-      const cell = document.createElement("div");
-      cell.className = "rankCell";
-
-      const label = document.createElement("label");
-      label.textContent = app.players[pi].name;
-
-      const sel = makeRankSelect(cur.ranks[pi], (v) => {
-        const now = app.selectionsThis10.get(artist) || { ranks: Array.from({ length: n }, () => "") };
-        now.ranks[pi] = v;
-        app.selectionsThis10.set(artist, now);
-        setGlobalSelection(artist, now);
-        renderSavedCards();
-      });
-
-      cell.appendChild(label);
-      cell.appendChild(sel);
-      grid.appendChild(cell);
-    }
   });
 
   setMsg(setupMsg, "候補10個を更新。登録済みは下に残り続けます。");
@@ -328,53 +338,40 @@ function renderCandidateCards() {
 
 function renderSavedCards() {
   savedCards.innerHTML = "";
-  const n = app.players.length;
 
   const entries = [...app.globalSelections.entries()]
-    .filter(([_, v]) => (v.ranks || []).some(x => !!x))
+    .filter(([_, v]) => Array.isArray(v?.ranks) && v.ranks.some(x => x))
     .sort((a, b) => a[0].localeCompare(b[0], "ja"));
 
-  const commonCount = entries.filter(([_, v]) => (v.ranks || []).every(x => !!x)).length;
+  const n = app.players.length;
+  const commonCount = entries.filter(([_, v]) => (v?.ranks?.length >= n && v.ranks.slice(0, n).every(Boolean))).length;
   savedSummary.textContent = `登録済み：${entries.length}件 / 共通（全員選択）：${commonCount}件`;
 
   entries.forEach(([artist, v], idx) => {
-    const ranks = Array.from({ length: n }, (_, i) => v.ranks?.[i] || "");
+    const ranks = Array.from({ length: n }, (_, i) => v?.ranks?.[i] || "");
 
     const wrap = document.createElement("div");
     wrap.className = "cardRow";
-    wrap.innerHTML = `
-      <div class="cardTop">
-        <div class="artistName">${escapeHtml(artist)}</div>
-        <div class="badgeMini">#${idx + 1}</div>
-      </div>
-      <div class="rankGrid" style="grid-template-columns: repeat(${n}, minmax(140px, 1fr));" id="savedGrid_${idx}"></div>
+
+    const top = document.createElement("div");
+    top.className = "cardTop";
+    top.innerHTML = `
+      <div class="artistName">${escapeHtml(artist)}</div>
+      <div class="badgeMini">#${idx+1}</div>
     `;
+    wrap.appendChild(top);
+
+    const grid = renderRankGrid(artist, ranks, (playerIndex, nv) => {
+      const nextRanks = [...ranks];
+      nextRanks[playerIndex] = nv;
+      setGlobalSelection(artist, { ranks: nextRanks });
+      if (app.selectionsThis10.has(artist)) app.selectionsThis10.set(artist, { ranks: [...nextRanks] });
+      renderCandidateCards();
+      renderSavedCards();
+    });
+    wrap.appendChild(grid);
+
     savedCards.appendChild(wrap);
-
-    const grid = wrap.querySelector(`#savedGrid_${idx}`);
-
-    for (let pi = 0; pi < n; pi++) {
-      const cell = document.createElement("div");
-      cell.className = "rankCell";
-
-      const label = document.createElement("label");
-      label.textContent = app.players[pi].name;
-
-      const sel = makeRankSelect(ranks[pi], (nv) => {
-        const now = app.globalSelections.get(artist) || { ranks: Array.from({ length: n }, () => "") };
-        const nextRanks = Array.from({ length: n }, (_, i) => now.ranks?.[i] || "");
-        nextRanks[pi] = nv;
-        const next = { ranks: nextRanks };
-        setGlobalSelection(artist, next);
-        if (app.selectionsThis10.has(artist)) app.selectionsThis10.set(artist, { ranks: [...nextRanks] });
-        renderCandidateCards();
-        renderSavedCards();
-      });
-
-      cell.appendChild(label);
-      cell.appendChild(sel);
-      grid.appendChild(cell);
-    }
   });
 }
 
@@ -398,20 +395,20 @@ function clearRanksOnlyThis10() {
   setMsg(setupMsg, "この10個の選択だけリセットしました。");
 }
 
-// 互換ボタン：旧UIの名残（P2だけ）
+/* 互換：2人目だけ削除（人数が2以上なら動く） */
 function clearP2OnlyAllArtists() {
   const n = app.players.length;
   if (n < 2) return;
 
   for (const [artist, v] of app.globalSelections.entries()) {
-    const ranks = Array.from({ length: n }, (_, i) => v.ranks?.[i] || "");
+    const ranks = Array.from({ length: n }, (_, i) => v?.ranks?.[i] || "");
     ranks[1] = "";
     setGlobalSelection(artist, { ranks });
     if (app.selectionsThis10.has(artist)) app.selectionsThis10.set(artist, { ranks: [...ranks] });
   }
   renderCandidateCards();
   renderSavedCards();
-  setMsg(setupMsg, "プレイヤー2だけ履歴（ランク）を全アーティストで削除しました。");
+  setMsg(setupMsg, "2人目（プレイヤー2）だけ履歴（ランク）を全アーティストで削除しました。");
 }
 
 function clearAllSaved() {
@@ -423,17 +420,16 @@ function clearAllSaved() {
 }
 
 /* =========================
-   Build common
+   Build common (全員がランク付けしたもの)
 ========================= */
 function buildCommon() {
   readSetupBasics();
 
   const n = app.players.length;
   const common = [];
-
   for (const [artist, v] of app.globalSelections.entries()) {
-    const ranks = Array.from({ length: n }, (_, i) => v.ranks?.[i] || "");
-    if (ranks.every(x => !!x)) common.push({ label: artist, ranks });
+    const ranks = Array.from({ length: n }, (_, i) => v?.ranks?.[i] || "");
+    if (ranks.every(Boolean)) common.push({ label: artist, ranks });
   }
 
   if (common.length < 1) {
@@ -455,15 +451,11 @@ function renderCommonList() {
     .forEach(a => {
       const div = document.createElement("div");
       div.className = "item";
-
-      const line = a.ranks
-        .map((r, i) => `${app.players[i].name}:${r}`)
-        .join(" / ");
-
+      const ranksText = a.ranks.map((r, i) => `${app.players[i].name}:${r}`).join(" / ");
       div.innerHTML = `
         <div>
           <div class="name">${escapeHtml(a.label)}</div>
-          <div class="sub tiny">${escapeHtml(line)}</div>
+          <div class="sub tiny">${escapeHtml(ranksText)}</div>
         </div>
       `;
       commonListEl.appendChild(div);
@@ -710,25 +702,29 @@ function rankValueOf(playerIndex, topicArtist) {
   const r = rankOf(playerIndex, topicArtist);
   return RANK_VALUE[r] ?? 1;
 }
+
 function questionLevel(topicArtist) {
-  const rs = topicArtist.ranks;
-  if (rs.every(r => DIFF_SET_HARD.has(r))) return "hard";
-  if (rs.every(r => DIFF_SET_EASY.has(r))) return "easy";
+  const ranks = topicArtist.ranks || [];
+  const allHard = ranks.length && ranks.every(r => DIFF_SET_HARD.has(r));
+  const allEasy = ranks.length && ranks.every(r => DIFF_SET_EASY.has(r));
+  if (allHard) return "hard";
+  if (allEasy) return "easy";
   return "normal";
 }
-function levelJP(level) {
+function levelJP(level){
   return level === "hard" ? "hard（マイナー寄り）" : level === "easy" ? "easy（有名寄り）" : "normal";
 }
 
-// 正解した人だけ：
-// 最高ランク（値が小さい）= +1
-// それ以外 = +1 + (自分 - 最高ランク)/3
+/* ★多人数スコア：正解した人だけ
+   最高ランク（値が小さい）= +1
+   それ以外 = +1 + (自分 - 最高ランク)/3
+*/
 function pointsFor(playerIndex, topicArtist) {
-  const self = rankValueOf(playerIndex, topicArtist);
-  const best = Math.min(...topicArtist.ranks.map((_, i) => rankValueOf(i, topicArtist)));
-  const diff = Math.abs(self - best);
-  if (diff <= 0) return 1;
-  if (self === best) return 1;
+  const n = app.players.length;
+  const vals = Array.from({ length: n }, (_, i) => rankValueOf(i, topicArtist));
+  const best = Math.min(...vals);
+  const self = vals[playerIndex];
+  const diff = Math.max(0, self - best);
   return 1 + diff / 3;
 }
 
@@ -880,7 +876,7 @@ async function buildRoundQuestionAsync() {
 
     const types = app.quizMode === "intro_only"
       ? ["intro_to_title", "intro_to_title", "intro_to_title"]
-      : shuffle(["intro_to_title", "cover_album_to_title", "data_json", "intro_to_title"]);
+      : shuffle(["intro_to_title","cover_album_to_title","data_json","intro_to_title"]);
 
     let q = null;
 
@@ -900,14 +896,13 @@ async function buildRoundQuestionAsync() {
     if (!q) continue;
     return { topicArtist, q };
   }
-
   return null;
 }
 
 /* =========================
    Game flow
 ========================= */
-function setActionBarVisible(on) {
+function setActionBarVisible(on){
   actionBar.classList.toggle("hidden", !on);
 }
 
@@ -915,15 +910,16 @@ function startGame() {
   readSetupBasics();
 
   app.game.round = 0;
-  app.game.currentPlayer = 0;
+  app.game.answerer = 0;
   app.game.score = Array.from({ length: app.players.length }, () => 0.0);
   app.game.usedSig = new Set();
   app.game.currentQ = null;
   app.game.topicArtist = null;
-  app.game.roundResults = Array.from({ length: app.players.length }, () => ({ answered: false, ok: false }));
+  app.game.roundResults = Array.from({ length: app.players.length }, () => ({ answered:false, ok:false }));
   app.game.introPhase = "none";
 
   renderScoreboard();
+  updateScoreboard();
 
   show(gameEl);
   setActionBarVisible(true);
@@ -939,7 +935,7 @@ function showRoundHandoff() {
   if (timeBarFill) timeBarFill.style.transform = "scaleX(1)";
 
   turnBadge.textContent = `Round ${app.game.round + 1}`;
-  qMeta.textContent = `全${app.totalQ}ラウンド / モード：${app.quizMode === "intro_only" ? "イントロのみ" : "ミックス"}`;
+  qMeta.textContent = `全${app.totalQ}ラウンド / モード：${app.quizMode === "intro_only" ? "イントロのみ" : "ミックス"} / 人数：${app.players.length}`;
 
   handoffTitle.textContent = `Round ${app.game.round + 1}：画面を隠して開始`;
   btnReveal.textContent = "問題を見る";
@@ -963,13 +959,12 @@ async function revealRound() {
 
   app.game.topicArtist = built.topicArtist;
   app.game.currentQ = built.q;
-  app.game.roundResults = Array.from({ length: app.players.length }, () => ({ answered: false, ok: false }));
-  app.game.currentPlayer = 0;
+  app.game.roundResults = Array.from({ length: app.players.length }, () => ({ answered:false, ok:false }));
 
-  // intro: play -> answer
   app.game.introPhase = (app.game.currentQ.kind === "intro_to_title") ? "play" : "none";
+  app.game.answerer = 0;
 
-  renderForCurrentPlayer();
+  renderForAnswerer();
 }
 
 function showHandoffFor(playerIndex) {
@@ -978,49 +973,45 @@ function showHandoffFor(playerIndex) {
 
   handoffTitle.textContent = `${app.players[playerIndex].name} の番：画面を隠して開始`;
   btnReveal.textContent = "問題を見る";
-
   handoff.classList.remove("hidden");
   qBox.classList.add("hidden");
-
   btnNext.disabled = true;
-  btnNext.textContent = "次へ";
 }
 
-function renderForCurrentPlayer() {
+function renderForAnswerer() {
   const q = app.game.currentQ;
   const topicArtist = app.game.topicArtist;
-  const pi = app.game.currentPlayer;
-
   if (!q || !topicArtist) return;
 
-  turnBadge.textContent = `Round ${app.game.round + 1}`;
-  qMeta.textContent = `同じ問題を ${app.players.map(p => p.name).join(" → ")} の順に回答`;
-
-  // intro special
   if (q.kind === "intro_to_title") {
-    return renderIntro(topicArtist, q, pi);
+    return renderIntroPhases(topicArtist, q);
   }
 
-  // non-intro
+  const ans = app.game.answerer;
+
   if (introAudio) { introAudio.pause(); introAudio = null; }
 
+  turnBadge.textContent = `Round ${app.game.round + 1}`;
+  qMeta.textContent = `同じ問題を全員が順番に回答`;
+
   qText.textContent = q.promptText;
+
   qMedia.classList.add("hidden");
   qMedia.innerHTML = "";
-
   if (q.media?.type === "img" && q.media.url) {
     qMedia.classList.remove("hidden");
     qMedia.innerHTML = `<img src="${q.media.url}" alt="${escapeHtml(q.media.alt || "image")}" />`;
   }
 
   const level = questionLevel(topicArtist);
-  const selfV = rankValueOf(pi, topicArtist);
-  const best = Math.min(...topicArtist.ranks.map((_, i) => rankValueOf(i, topicArtist)));
-  const diff = Math.abs(selfV - best);
-  const pts = pointsFor(pi, topicArtist);
+  const selfV = rankValueOf(ans, topicArtist);
+  const bestV = Math.min(...topicArtist.ranks.map((_, i) => rankValueOf(i, topicArtist)));
+  const diff  = Math.max(0, selfV - bestV);
+  const pts   = pointsFor(ans, topicArtist);
 
-  phaseLine.textContent = `${app.players[pi].name} が回答`;
-  rankLine.textContent = `トピック：${topicArtist.label} / 自分:${rankOf(pi, topicArtist)}(${selfV}) 最高:${best} 差=${diff} → 正解 +${fmtScore(pts)}点 / 出題:${levelJP(level)}`;
+  phaseLine.textContent = `${app.players[ans].name} が回答`;
+  rankLine.textContent =
+    `トピック：${topicArtist.label} / 自分:${rankOf(ans, topicArtist)}(${selfV}) / 最高:${bestV} / 差=${diff} → 正解 +${fmtScore(pts)}点 / 出題:${levelJP(level)}`;
 
   choicesEl.innerHTML = "";
   q.choices.forEach(ch => {
@@ -1035,13 +1026,17 @@ function renderForCurrentPlayer() {
   resultEl.textContent = "";
 
   btnNext.disabled = true;
-  btnNext.textContent = (pi === app.players.length - 1) ? "次のラウンド" : "次の人へ";
+  btnNext.textContent = (ans === app.players.length - 1) ? "次のラウンド" : "次の人へ";
 
   startTimer(app.timeLimit, () => onTimeout());
 }
 
-function renderIntro(topicArtist, q, pi) {
-  const phase = app.game.introPhase; // play | answer
+/* ===== イントロ：再生→全員回答 ===== */
+function renderIntroPhases(topicArtist, q) {
+  const phase = app.game.introPhase;
+
+  turnBadge.textContent = `Round ${app.game.round + 1}`;
+  qMeta.textContent = `イントロ問題：再生 → 全員が順番に回答`;
 
   qText.textContent = q.promptText;
 
@@ -1059,14 +1054,14 @@ function renderIntro(topicArtist, q, pi) {
 
   if (phase === "play") {
     phaseLine.textContent = "イントロ再生フェーズ（まだ回答しない）";
-    rankLine.textContent = `再生が終わったら ${app.players[0].name} から回答`;
+    rankLine.textContent = `再生が終わったら ${app.players[0].name} が回答`;
+
     timerNoteEl.textContent = "イントロ再生中（回答フェーズ前）";
 
     introArea.innerHTML = `
       <button id="btnPlayIntroOnce" class="btn primary wide">▶ イントロ再生（${q.media.seconds}秒）</button>
       <div class="sub tiny" style="margin-top:8px">※このフェーズでは選択肢を出しません</div>
     `;
-
     $("btnPlayIntroOnce").onclick = async () => {
       const btn = $("btnPlayIntroOnce");
       btn.disabled = true;
@@ -1078,10 +1073,9 @@ function renderIntro(topicArtist, q, pi) {
         btn.disabled = false;
         return;
       }
-
       app.game.introPhase = "answer";
-      app.game.currentPlayer = 0;
-      renderForCurrentPlayer();
+      app.game.answerer = 0;
+      showHandoffFor(0);
     };
 
     btnNext.disabled = true;
@@ -1089,15 +1083,7 @@ function renderIntro(topicArtist, q, pi) {
     return;
   }
 
-  // answer phase
-  const level = questionLevel(topicArtist);
-  const selfV = rankValueOf(pi, topicArtist);
-  const best = Math.min(...topicArtist.ranks.map((_, i) => rankValueOf(i, topicArtist)));
-  const diff = Math.abs(selfV - best);
-  const pts = pointsFor(pi, topicArtist);
-
-  phaseLine.textContent = `${app.players[pi].name} が回答`;
-  rankLine.textContent = `トピック：${topicArtist.label} / 自分:${rankOf(pi, topicArtist)}(${selfV}) 最高:${best} 差=${diff} → 正解 +${fmtScore(pts)}点 / 出題:${levelJP(level)}`;
+  const ans = app.game.answerer;
 
   timerNoteEl.textContent = app.timeLimit > 0 ? `制限時間：${app.timeLimit}s` : "制限時間：なし";
 
@@ -1108,9 +1094,22 @@ function renderIntro(topicArtist, q, pi) {
   $("btnReplayIntro").onclick = async () => {
     const btn = $("btnReplayIntro");
     btn.disabled = true;
-    try { await playIntro(q.media.previewUrl, q.media.seconds, q.media.startAt || 0); }
-    finally { btn.disabled = false; }
+    try {
+      await playIntro(q.media.previewUrl, q.media.seconds, q.media.startAt || 0);
+    } finally {
+      btn.disabled = false;
+    }
   };
+
+  const level = questionLevel(topicArtist);
+  const selfV = rankValueOf(ans, topicArtist);
+  const bestV = Math.min(...topicArtist.ranks.map((_, i) => rankValueOf(i, topicArtist)));
+  const diff  = Math.max(0, selfV - bestV);
+  const pts   = pointsFor(ans, topicArtist);
+
+  phaseLine.textContent = `${app.players[ans].name} が回答`;
+  rankLine.textContent =
+    `トピック：${topicArtist.label} / 自分:${rankOf(ans, topicArtist)}(${selfV}) / 最高:${bestV} / 差=${diff} → 正解 +${fmtScore(pts)}点 / 出題:${levelJP(level)}`;
 
   q.choices.forEach(ch => {
     const b = document.createElement("button");
@@ -1121,7 +1120,7 @@ function renderIntro(topicArtist, q, pi) {
   });
 
   btnNext.disabled = true;
-  btnNext.textContent = (pi === app.players.length - 1) ? "次のラウンド" : "次の人へ";
+  btnNext.textContent = (ans === app.players.length - 1) ? "次のラウンド" : "次の人へ";
 
   startTimer(app.timeLimit, () => onTimeout());
 }
@@ -1131,8 +1130,8 @@ function lockChoices() {
 }
 
 function onTimeout() {
-  const pi = app.game.currentPlayer;
-  app.game.roundResults[pi] = { answered: true, ok: false };
+  const ans = app.game.answerer;
+  app.game.roundResults[ans] = { answered: true, ok: false };
 
   lockChoices();
   if (introAudio) { introAudio.pause(); introAudio = null; }
@@ -1147,11 +1146,11 @@ function onTimeout() {
 function answerChoice(choice) {
   stopTimer();
 
-  const pi = app.game.currentPlayer;
+  const ans = app.game.answerer;
   const q = app.game.currentQ;
 
   const ok = String(choice) === String(q.correct);
-  app.game.roundResults[pi] = { answered: true, ok };
+  app.game.roundResults[ans] = { answered: true, ok };
 
   lockChoices();
   if (introAudio) { introAudio.pause(); introAudio = null; }
@@ -1168,15 +1167,15 @@ function advanceAfterAnswer() {
   stopTimer();
   if (introAudio) { introAudio.pause(); introAudio = null; }
 
-  const last = app.players.length - 1;
+  const n = app.players.length;
+  const cur = app.game.answerer;
 
-  if (app.game.currentPlayer < last) {
-    app.game.currentPlayer += 1;
-    showHandoffFor(app.game.currentPlayer);
-    return;
+  if (cur < n - 1) {
+    app.game.answerer = cur + 1;
+    showHandoffFor(app.game.answerer);
+  } else {
+    applyRoundScoreAndNext();
   }
-
-  applyRoundScoreAndNext();
 }
 
 function applyRoundScoreAndNext() {
@@ -1184,24 +1183,26 @@ function applyRoundScoreAndNext() {
   if (introAudio) { introAudio.pause(); introAudio = null; }
 
   const topicArtist = app.game.topicArtist;
+  const n = app.players.length;
 
-  const adds = app.game.roundResults.map((r, i) => (r.ok ? pointsFor(i, topicArtist) : 0.0));
-  app.game.score = app.game.score.map((s, i) => s + adds[i]);
+  const adds = Array.from({ length: n }, (_, i) =>
+    (app.game.roundResults[i].ok ? pointsFor(i, topicArtist) : 0.0)
+  );
 
-  // update scoreboard
-  app.players.forEach((_, i) => {
-    const el = $(`sbScore_${i}`);
-    if (el) el.textContent = fmtScore(app.game.score[i]);
-  });
+  for (let i = 0; i < n; i++) app.game.score[i] += adds[i];
 
-  app.game.round += 1;
+  updateScoreboard();
+
+  app.game.round++;
   app.game.currentQ = null;
   app.game.topicArtist = null;
+
   app.game.introPhase = "none";
+  app.game.answerer = 0;
 
   if (app.game.round >= app.totalQ) {
-    const addText = adds.map((a, i) => `${app.players[i].name}+${fmtScore(a)}`).join(", ");
-    endGame(`最終加点：${addText}`);
+    const reason = `最終加点：${adds.map((x,i)=>`${app.players[i].name}+${fmtScore(x)}`).join(", ")}`;
+    endGame(reason);
     return;
   }
 
@@ -1214,34 +1215,31 @@ function endGame(reason) {
 
   setActionBarVisible(false);
 
-  const scores = app.game.score.slice();
+  const scores = app.game.score.map(x => Number(x || 0));
   const max = Math.max(...scores);
-  const winners = app.players
-    .map((p, i) => ({ name: p.name, score: scores[i] }))
-    .filter(x => x.score === max)
-    .map(x => x.name);
+  const winners = scores
+    .map((s,i) => ({ s, i }))
+    .filter(x => x.s === max)
+    .map(x => app.players[x.i].name);
 
-  const winnerText = winners.length === 1
-    ? `${winners[0]}の勝ち！`
-    : `引き分け（${winners.join(" / ")}）`;
-
-  const rows = app.players.map((p, i) => `
-    <div class="item">
-      <div>
-        <div class="name">${escapeHtml(p.name)}</div>
-        <div class="sub tiny">スコア</div>
-      </div>
-      <div style="font-weight:900;font-size:20px">${fmtScore(scores[i])}</div>
-    </div>
-  `).join("");
+  const winnerText = winners.length === 1 ? `${winners[0]}の勝ち！` : `引き分け（${winners.join(" / ")}）`;
 
   finalEl.innerHTML = `
     <p>${escapeHtml(reason || "")}</p>
     <p><strong>${escapeHtml(winnerText)}</strong></p>
-    <div class="list">${rows}</div>
+    <div class="list">
+      ${app.players.map((p,i)=>`
+        <div class="item">
+          <div>
+            <div class="name">${escapeHtml(p.name)}</div>
+            <div class="sub tiny">スコア</div>
+          </div>
+          <div style="font-weight:900;font-size:20px">${fmtScore(scores[i])}</div>
+        </div>
+      `).join("")}
+    </div>
     <p class="sub">共通アーティスト：${app.common.length} / data.json：${app.dataQuestions.length}問</p>
   `;
-
   show(doneEl);
 }
 
@@ -1255,6 +1253,7 @@ btnClearAllSaved.onclick = () => clearAllSaved();
 btnBuildCommon.onclick = () => buildCommon();
 
 btnBackToSetup.onclick = () => { setMsg(commonMsg, ""); show(setupEl); };
+
 btnFetchData.onclick = async () => {
   btnFetchData.disabled = true;
   try { await fetchDataForCommon(); }
@@ -1266,66 +1265,29 @@ btnReveal.onclick = async () => {
     await revealRound();
     return;
   }
-
   handoff.classList.add("hidden");
   qBox.classList.remove("hidden");
-  renderForCurrentPlayer();
+  renderForAnswerer();
 };
 
-btnNext.onclick = () => {
-  if (!app.game.currentQ) return; // in handoff before question
-  advanceAfterAnswer();
-};
-
+btnNext.onclick = () => advanceAfterAnswer();
 btnEnd.onclick = () => endGame("途中終了");
 
 btnRestart.onclick = () => {
   setMsg(setupMsg, "");
-  setMsg(commonMsg, "");
   show(setupEl);
   setActionBarVisible(false);
 };
 
-/* =========================
-   Init
-========================= */
-function hydrateFromCache() {
-  const ps = loadCache("mm_players_v1", { count: 3, names: ["P1", "P2", "P3"] });
-  const count = clamp(parseInt(ps.count, 10) || 3, 3, 6);
-  $("playerCount").value = String(count);
-  rebuildPlayerInputs(ps.names);
-
-  const saved = loadCache("mm_globalSelections_v10", {});
-  app.globalSelections = new Map(Object.entries(saved));
-
-  // normalize ranks in storage in case of old shapes
-  const n = count;
-  for (const [artist, v] of app.globalSelections.entries()) {
-    if (!v || !Array.isArray(v.ranks)) {
-      app.globalSelections.set(artist, { ranks: Array.from({ length: n }, () => "") });
-      continue;
-    }
-    const ranks = Array.from({ length: n }, (_, i) => v.ranks[i] || "");
-    app.globalSelections.set(artist, { ranks });
-  }
-
-  readSetupBasics();
-  app.candidates = generateCandidates10();
-  ensureSelectionsThis10();
-  renderCandidateCards();
-  renderSavedCards();
-}
-
 $("playerCount").addEventListener("change", () => {
-  const ps = loadCache("mm_players_v1", { count: 3, names: [] });
+  const ps = loadCache("mm_players_v1", { count: 2, names: [] });
   rebuildPlayerInputs(ps.names);
-  // players changed -> rerender cards with new columns
   readSetupBasics();
-  // normalize selections
+
   const saved = loadCache("mm_globalSelections_v10", {});
   app.globalSelections = new Map(Object.entries(saved));
-  // will normalize in hydrate-like pass
   const n = app.players.length;
+
   for (const [artist, v] of app.globalSelections.entries()) {
     const ranks = Array.from({ length: n }, (_, i) => v?.ranks?.[i] || "");
     app.globalSelections.set(artist, { ranks });
@@ -1337,7 +1299,37 @@ $("playerCount").addEventListener("change", () => {
   renderSavedCards();
 });
 
-// first load
+/* =========================
+   Init / Hydrate
+========================= */
+function hydrateFromCache() {
+  const ps = loadCache("mm_players_v1", { count: 2, names: [] });
+  $("playerCount").value = String(clamp(ps.count || 2, 2, 6));
+  rebuildPlayerInputs(ps.names || []);
+  readSetupBasics();
+
+  const saved = loadCache("mm_globalSelections_v10", {});
+  const rawMap = new Map(Object.entries(saved));
+
+  app.globalSelections = new Map();
+  const n = app.players.length;
+
+  for (const [artist, v] of rawMap.entries()) {
+    if (!v || !Array.isArray(v.ranks)) {
+      app.globalSelections.set(artist, { ranks: Array.from({ length: n }, () => "") });
+      continue;
+    }
+    const ranks = Array.from({ length: n }, (_, i) => v.ranks[i] || "");
+    app.globalSelections.set(artist, { ranks });
+  }
+  saveCache("mm_globalSelections_v10", Object.fromEntries(app.globalSelections.entries()));
+
+  app.candidates = generateCandidates10();
+  ensureSelectionsThis10();
+  renderCandidateCards();
+  renderSavedCards();
+}
+
 (async function init() {
   await loadDataQuestions();
   hydrateFromCache();

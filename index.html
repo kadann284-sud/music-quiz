@@ -3,15 +3,16 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>music-match アーティスト対戦</title>
+  <title>music-match：共通アーティスト対戦</title>
   <link rel="stylesheet" href="./style.css" />
 </head>
+
 <body>
   <header class="app-header">
     <h1>music-match：共通アーティスト対戦</h1>
     <p class="sub">
-      1台端末 / 同じ問題を全員が順番に解く / 4択 / イントロは「再生→全員が順番に回答」<br>
-      点数：正解した人だけ（最高ランク側 +1点 / それ以外 +1点 + 差÷3）
+      1台端末 / 同じ問題をみんなが順番に解く / 4択<br>
+      人数：2〜6人 / イントロは「再生→全員回答」
     </p>
   </header>
 
@@ -23,14 +24,10 @@
 
       <div class="row">
         <div class="small">
-          <label>プレイヤー人数（3〜6）</label>
-          <input id="playerCount" class="input smallInput" type="number" min="3" max="6" value="3" />
+          <label>人数（2〜6）</label>
+          <input id="playerCount" class="input smallInput" type="number" min="2" max="6" value="2" />
         </div>
-      </div>
 
-      <div id="playerInputs" class="row"></div>
-
-      <div class="row">
         <div class="small">
           <label>ラウンド数</label>
           <input id="totalQ" class="input smallInput" type="number" min="3" value="12" />
@@ -40,7 +37,7 @@
           <label>出題モード</label>
           <select id="quizMode" class="input smallInput">
             <option value="intro_only">イントロのみ</option>
-            <option value="mix" selected>イントロ＋他の問題（ジャケ写 / data.json）</option>
+            <option value="mix" selected>イントロ＋他（ジャケ写 / data.json）</option>
           </select>
         </div>
 
@@ -59,11 +56,14 @@
         </div>
       </div>
 
+      <h3 class="h3">プレイヤー名</h3>
+      <div id="playerInputs" class="row"></div>
+
       <div class="hint">
         <p class="sub">
-          ランク値：A=1, B=2, C=3, D=4（数が小さいほど“聴いてる”＝高ランク）<br>
-          正解加点：最高ランク（最小値） +1 / それ以外 +1 + (差÷3)<br>
-          出題難易度：全員A/B→hard優先、全員C/D→easy優先（data.jsonも同様）
+          ランク値：A=1, B=2, C=3, D=4（小さいほど“聴いてる”）<br>
+          正解した人だけ加点：最高ランクの人は +1 / それ以外は +1 + (自分−最高)÷3<br>
+          出題難易度：全員A/B → hard寄り、全員C/D → easy寄り（data.jsonも同様）
         </p>
       </div>
 
@@ -95,7 +95,7 @@
     <!-- ===== Common ===== -->
     <section id="common" class="card hidden">
       <h2>2) 共通アーティスト</h2>
-      <p class="sub">全員がランクを付けたアーティストが1件以上で開始OK</p>
+      <p class="sub">共通が1件以上あれば開始OK</p>
 
       <div id="commonList" class="list"></div>
 
@@ -162,7 +162,7 @@
 
   </main>
 
-  <!-- スマホ用：固定アクションバー -->
+  <!-- 固定アクションバー -->
   <div id="actionBar" class="actionBar hidden">
     <button id="btnNext" class="btn primary flex1" disabled>次へ</button>
     <button id="btnEnd" class="btn ghost">終了</button>
