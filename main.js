@@ -174,6 +174,52 @@ function saveCache(key, value) {
 function fmtScore(x){ return (Math.round(x * 10) / 10).toFixed(1); }
 
 /* =========================
+   擬似「サブスク再生数(popScore)」関連
+   - iTunes検索の出現順、ベスト盤、preview有無、曲名短さ、重複登場などから
+     “人気っぽさ”を数値化して easy/hard で使う
+========================= */
+
+// 重み付き抽選（items: [{item, w}]）
+function weightedPick(items) {
+  const total = items.reduce((s, x) => s + (x.w > 0 ? x.w : 0), 0);
+  if (total <= 0) return items.length ? items[0].item : null;
+
+  let r = Math.random() * total;
+  for (const x of items) {
+    const w = x.w > 0 ? x.w : 0;
+    r -= w;
+    if (r <= 0) return x.item;
+  }
+  return items[items.length - 1].item;
+}
+
+function nameShortBonus(name) {
+  const len = (name || "").length;
+  return Math.max(0, 18 - len);
+}
+
+function bestAlbumBonus(collectionName) {
+  const s = (collectionName || "").toLowerCase();
+  if (/best|greatest|collection|ベスト|best of|hits/.test(s)) return 35;
+  return 0;
+}
+
+function orderBonus(index, total) {
+  const t = Math.max(1, total);
+  return (t - index) * 3; // 先頭ほど大きい
+}
+
+function pseudoPopularityScore({ trackName, collectionName, hasPreview, index, total, appearance }) {
+  let score = 0;
+  score += orderBonus(index, total);
+  score += bestAlbumBonus(collectionName);
+  if (hasPreview) score += 6;
+  score += nameShortBonus(trackName);
+  score += (appearance || 1) * 8; // 検索結果に何度も出てくる曲ほど代表曲っぽい
+  return score;
+}
+
+/* =========================
    Players (dynamic 2-6)
 ========================= */
 function rebuildPlayerInputs(defaultNames = []) {
@@ -531,21 +577,42 @@ async function fetchItunesArtistPack(artistLabel) {
       return am - bm;
     });
 
+  // 同じ曲名が検索結果に何回出てきたか（代表曲っぽさ）
+  const appearanceCount = new Map();
+  items.forEach(x => {
+    const k = normalizeKey(x.track);
+    appearanceCount.set(k, (appearanceCount.get(k) || 0) + 1);
+  });
+
   const seenTrack = new Set();
   const tracks = [];
   const albumMap = new Map();
   const albumFirstIndex = new Map();
 
-  for (const x of items) {
+  for (let idx = 0; idx < items.length; idx++) {
+    const x = items[idx];
+
     const key = normalizeKey(x.track);
     if (!seenTrack.has(key)) {
       seenTrack.add(key);
+
+      // ★擬似「人気スコア」
+      const score = pseudoPopularityScore({
+        trackName: x.track,
+        collectionName: x.collectionName,
+        hasPreview: !!x.preview,
+        index: idx,
+        total: items.length,
+        appearance: appearanceCount.get(key) || 1
+      });
+
       tracks.push({
         name: x.track,
         preview: x.preview,
         artwork: x.artwork,
         collectionId: x.collectionId,
         collectionName: x.collectionName,
+        popScore: score // ★追加
       });
     }
 
@@ -763,18 +830,27 @@ function makeQ_fromDataJson(topicArtist) {
   };
 }
 
+/* ★ここが変更点：selectTrackPoolがpopScore順に「人気帯」を切り出す */
 function selectTrackPool(pack, level) {
   const usable = (pack.tracks || []).filter(t => t.preview && t.name);
   if (usable.length < 4) return usable;
 
-  const n = usable.length;
+  const withScore = usable.map((t, i) => ({
+    ...t,
+    popScore: Number.isFinite(t.popScore) ? t.popScore : (usable.length - i)
+  }));
+
+  // 人気っぽい順（高→低）
+  withScore.sort((a, b) => b.popScore - a.popScore);
+
+  const n = withScore.length;
   const win = Math.min(12, Math.max(6, Math.floor(n * 0.45)));
 
-  if (level === "easy") return usable.slice(0, win);
-  if (level === "hard") return usable.slice(Math.max(0, n - win), n);
+  if (level === "easy") return withScore.slice(0, win);                    // 上位（人気寄り）
+  if (level === "hard") return withScore.slice(Math.max(0, n - win), n);   // 下位（マイナー寄り）
 
   const start = Math.floor((n - win) / 2);
-  return usable.slice(start, start + win);
+  return withScore.slice(start, start + win);
 }
 
 function makeQ_introToTitle(topicArtist) {
@@ -785,7 +861,17 @@ function makeQ_introToTitle(topicArtist) {
   const pool = selectTrackPool(pack, level);
   if (pool.length < 4) return null;
 
-  const track = pickRandom(pool);
+  // ★任意の強化：easyは人気曲がさらに出やすい / hardは逆
+  let track;
+  if (level === "easy") {
+    track = weightedPick(pool.map(t => ({ item: t, w: Math.max(1, t.popScore || 1) })));
+  } else if (level === "hard") {
+    const maxS = Math.max(...pool.map(t => t.popScore || 1));
+    track = weightedPick(pool.map(t => ({ item: t, w: Math.max(1, (maxS + 1) - (t.popScore || 1)) })));
+  } else {
+    track = pickRandom(pool);
+  }
+
   const correct = track.name;
 
   const distractorPool = pool.map(t => t.name).filter(n => n && n !== correct);
