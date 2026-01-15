@@ -174,9 +174,16 @@ function saveCache(key, value) {
 function fmtScore(x){ return (Math.round(x * 10) / 10).toFixed(1); }
 
 /* =========================
+   追加：難易度ごとの選択肢数
+========================= */
+function choiceCountForLevel(level){
+  if (level === "easy") return 4;
+  if (level === "hard") return 8;
+  return 6; // normal
+}
+
+/* =========================
    擬似「サブスク再生数(popScore)」関連
-   - iTunes検索の出現順、ベスト盤、preview有無、曲名短さ、重複登場などから
-     “人気っぽさ”を数値化して easy/hard で使う
 ========================= */
 
 // 重み付き抽選（items: [{item, w}]）
@@ -441,7 +448,6 @@ function clearRanksOnlyThis10() {
   setMsg(setupMsg, "この10個の選択だけリセットしました。");
 }
 
-/* 互換：2人目だけ削除（人数が2以上なら動く） */
 function clearP2OnlyAllArtists() {
   const n = app.players.length;
   if (n < 2) return;
@@ -466,7 +472,7 @@ function clearAllSaved() {
 }
 
 /* =========================
-   Build common (全員がランク付けしたもの)
+   Build common
 ========================= */
 function buildCommon() {
   readSetupBasics();
@@ -511,7 +517,7 @@ function renderCommonList() {
 }
 
 /* =========================
-   data.json loader (difficulty対応)
+   data.json loader
 ========================= */
 async function loadDataQuestions() {
   try {
@@ -577,7 +583,6 @@ async function fetchItunesArtistPack(artistLabel) {
       return am - bm;
     });
 
-  // 同じ曲名が検索結果に何回出てきたか（代表曲っぽさ）
   const appearanceCount = new Map();
   items.forEach(x => {
     const k = normalizeKey(x.track);
@@ -596,7 +601,6 @@ async function fetchItunesArtistPack(artistLabel) {
     if (!seenTrack.has(key)) {
       seenTrack.add(key);
 
-      // ★擬似「人気スコア」
       const score = pseudoPopularityScore({
         trackName: x.track,
         collectionName: x.collectionName,
@@ -612,7 +616,7 @@ async function fetchItunesArtistPack(artistLabel) {
         artwork: x.artwork,
         collectionId: x.collectionId,
         collectionName: x.collectionName,
-        popScore: score // ★追加
+        popScore: score
       });
     }
 
@@ -721,7 +725,7 @@ async function playIntro(previewUrl, seconds, startAtSec) {
 }
 
 /* =========================
-   Timer (bar)
+   Timer
 ========================= */
 let timerId = null;
 function stopTimer() {
@@ -782,10 +786,6 @@ function levelJP(level){
   return level === "hard" ? "hard（マイナー寄り）" : level === "easy" ? "easy（有名寄り）" : "normal";
 }
 
-/* ★多人数スコア：正解した人だけ
-   最高ランク（値が小さい）= +1
-   それ以外 = +1 + (自分 - 最高ランク)/3
-*/
 function pointsFor(playerIndex, topicArtist) {
   const n = app.players.length;
   const vals = Array.from({ length: n }, (_, i) => rankValueOf(i, topicArtist));
@@ -803,6 +803,7 @@ function makeQ_fromDataJson(topicArtist) {
 
   const commons = new Set(app.common.map(a => a.label));
   const level = questionLevel(topicArtist);
+  const need = choiceCountForLevel(level);
 
   const related = app.dataQuestions.filter(q => q.artists.some(ar => commons.has(ar)));
   if (!related.length) return null;
@@ -815,22 +816,24 @@ function makeQ_fromDataJson(topicArtist) {
   const pool = pool1.length ? pool1 : (pool2.length ? pool2 : basePool);
   if (!pool.length) return null;
 
-  const q = pickRandom(pool);
-  if (!q.choices.includes(q.answer)) return null;
+  // choicesが足りる問題だけ
+  const candidates = pool.filter(q => Array.isArray(q.choices) && q.choices.length >= need && q.choices.includes(q.answer));
+  if (!candidates.length) return null;
 
-  const distractors = shuffle(q.choices.filter(c => c !== q.answer)).slice(0, 3);
-  if (distractors.length < 3) return null;
+  const q = pickRandom(candidates);
+
+  const distractors = shuffle(q.choices.filter(c => c !== q.answer)).slice(0, need - 1);
+  if (distractors.length < need - 1) return null;
 
   return {
     kind: "data_json",
-    promptText: `${q.prompt}\n（data:${q.difficulty} / prefer:${level}）`,
+    promptText: `${q.prompt}\n（選択肢:${need} / data:${q.difficulty} / prefer:${level}）`,
     media: null,
     choices: shuffle([q.answer, ...distractors]),
     correct: q.answer
   };
 }
 
-/* ★ここが変更点：selectTrackPoolがpopScore順に「人気帯」を切り出す */
 function selectTrackPool(pack, level) {
   const usable = (pack.tracks || []).filter(t => t.preview && t.name);
   if (usable.length < 4) return usable;
@@ -840,14 +843,16 @@ function selectTrackPool(pack, level) {
     popScore: Number.isFinite(t.popScore) ? t.popScore : (usable.length - i)
   }));
 
-  // 人気っぽい順（高→低）
   withScore.sort((a, b) => b.popScore - a.popScore);
 
   const n = withScore.length;
-  const win = Math.min(12, Math.max(6, Math.floor(n * 0.45)));
+  // ★8択でも候補が足りるように、切り出しウィンドウを少し広めに
+  const need = choiceCountForLevel(level);
+  const minWin = Math.min(n, Math.max(need + 4, 10));
+  const win = Math.min(n, Math.max(minWin, Math.floor(n * 0.55)));
 
-  if (level === "easy") return withScore.slice(0, win);                    // 上位（人気寄り）
-  if (level === "hard") return withScore.slice(Math.max(0, n - win), n);   // 下位（マイナー寄り）
+  if (level === "easy") return withScore.slice(0, win);
+  if (level === "hard") return withScore.slice(Math.max(0, n - win), n);
 
   const start = Math.floor((n - win) / 2);
   return withScore.slice(start, start + win);
@@ -858,10 +863,11 @@ function makeQ_introToTitle(topicArtist) {
   if (!pack) return null;
 
   const level = questionLevel(topicArtist);
-  const pool = selectTrackPool(pack, level);
-  if (pool.length < 4) return null;
+  const need = choiceCountForLevel(level);
 
-  // ★任意の強化：easyは人気曲がさらに出やすい / hardは逆
+  const pool = selectTrackPool(pack, level);
+  if (pool.length < need) return null;
+
   let track;
   if (level === "easy") {
     track = weightedPick(pool.map(t => ({ item: t, w: Math.max(1, t.popScore || 1) })));
@@ -874,18 +880,19 @@ function makeQ_introToTitle(topicArtist) {
 
   const correct = track.name;
 
-  const distractorPool = pool.map(t => t.name).filter(n => n && n !== correct);
+  const distractorPool = pool.map(t => t.name).filter(n => n && normalizeKey(n) !== normalizeKey(correct));
   const uniq = [...new Set(distractorPool)];
-  if (uniq.length < 3) return null;
+  if (uniq.length < (need - 1)) return null;
 
-  const distractors = shuffle(uniq).slice(0, 3);
+  const distractors = shuffle(uniq).slice(0, need - 1);
+
   const randomStart = (level === "hard");
   const seconds = app.introLen;
   const startAt = randomStart ? Math.floor(Math.random() * Math.max(1, 30 - seconds)) : 0;
 
   return {
     kind: "intro_to_title",
-    promptText: `【イントロ】${topicArtist.label} の曲名はどれ？（${seconds}秒 / ${levelJP(level)}）`,
+    promptText: `【イントロ】${topicArtist.label} の曲名はどれ？（${seconds}秒 / ${levelJP(level)} / 選択肢:${need}）`,
     media: { type: "intro", previewUrl: track.preview, seconds, startAt },
     choices: shuffle([correct, ...distractors]),
     correct
@@ -917,10 +924,12 @@ async function makeQ_coverAlbumToTitle(topicArtist) {
   if (!pack) return null;
 
   const level = questionLevel(topicArtist);
+  const need = choiceCountForLevel(level);
+
   const albums = selectAlbumPool(pack, level);
   if (albums.length < 1) return null;
 
-  for (let attempt = 0; attempt < 10; attempt++) {
+  for (let attempt = 0; attempt < 12; attempt++) {
     const al = pickRandom(albums);
     const album = await fetchAlbumTracks(al.collectionId);
     if (!album || !album.trackNames || album.trackNames.length < 1) continue;
@@ -933,15 +942,15 @@ async function makeQ_coverAlbumToTitle(topicArtist) {
       .filter(n => normalizeKey(n) !== normalizeKey(correct))
       .filter(n => !exclude.has(normalizeKey(n)));
 
-    if (candidates.length < 3) continue;
+    if (candidates.length < (need - 1)) continue;
 
-    const choices = shuffle([correct, ...shuffle(candidates).slice(0, 3)]);
+    const choices = shuffle([correct, ...shuffle(candidates).slice(0, need - 1)]);
     const artwork = album.artwork || al.artwork || (pack.tracks.find(t => t.artwork)?.artwork || "");
     if (!artwork) continue;
 
     return {
       kind: "cover_album_to_title",
-      promptText: `【ジャケ写】このアルバムに入っている曲名はどれ？\nアーティスト：${topicArtist.label}\n（${levelJP(level)}）`,
+      promptText: `【ジャケ写】このアルバムに入っている曲名はどれ？\nアーティスト：${topicArtist.label}\n（${levelJP(level)} / 選択肢:${need}）`,
       media: { type: "img", url: artwork, alt: "album artwork" },
       choices,
       correct
@@ -951,7 +960,7 @@ async function makeQ_coverAlbumToTitle(topicArtist) {
 }
 
 /* =========================
-   Build a round question (mix / intro_only)
+   Build a round question
 ========================= */
 async function buildRoundQuestionAsync() {
   const commonPool = app.common.slice();
