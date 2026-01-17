@@ -3,16 +3,15 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>music-match：共通アーティスト対戦</title>
+  <title>music-match アーティスト対戦</title>
   <link rel="stylesheet" href="./style.css" />
 </head>
-
 <body>
   <header class="app-header">
     <h1>music-match：共通アーティスト対戦</h1>
     <p class="sub">
-      1台端末 / 同じ問題をみんなが順番に解く / 4択<br>
-      人数：2〜6人 / イントロは「再生→全員回答」
+      1台端末 / 同じ問題を2人が解く / 4択 / イントロは「再生→P1→P2」<br>
+      点数：正解した人だけ（高ランク側+1点 / 低ランク側+1点+差÷3）
     </p>
   </header>
 
@@ -24,10 +23,16 @@
 
       <div class="row">
         <div class="small">
-          <label>人数（2〜6）</label>
-          <input id="playerCount" class="input smallInput" type="number" min="2" max="6" value="2" />
+          <label>プレイヤー1 名前</label>
+          <input id="p1Name" class="input" value="P1" />
         </div>
+        <div class="small">
+          <label>プレイヤー2 名前</label>
+          <input id="p2Name" class="input" value="P2" />
+        </div>
+      </div>
 
+      <div class="row">
         <div class="small">
           <label>ラウンド数</label>
           <input id="totalQ" class="input smallInput" type="number" min="3" value="12" />
@@ -37,7 +42,7 @@
           <label>出題モード</label>
           <select id="quizMode" class="input smallInput">
             <option value="intro_only">イントロのみ</option>
-            <option value="mix" selected>イントロ＋他（ジャケ写 / data.json）</option>
+            <option value="mix" selected>イントロ＋他の問題（ジャケ写 / data.json）</option>
           </select>
         </div>
 
@@ -56,22 +61,18 @@
         </div>
       </div>
 
-      <h3 class="h3">プレイヤー名</h3>
-      <div id="playerInputs" class="row"></div>
-
       <div class="hint">
         <p class="sub">
-          ランク値：A=1, B=2, C=3, D=4（小さいほど“聴いてる”）<br>
-          正解した人だけ加点：最高ランクの人は +1 / それ以外は +1 + (自分−最高)÷3<br>
-          出題難易度：全員A/B → hard寄り、全員C/D → easy寄り（data.jsonも同様）<br>
-          ★easy/hardの曲選びは「擬似サブスク再生数(popScore)」で寄せています
+          ランク値：A=1, B=2, C=3, D=4（数が小さいほど“聴いてる”＝高ランク）<br>
+          正解加点：高ランク側 +1 / 低ランク側 +1 + (差÷3)（同ランクなら +1）<br>
+          出題難易度：両者A/B→hard優先、両者C/D→easy優先（data.jsonも同様）
         </p>
       </div>
 
       <div class="btnGrid">
         <button id="btnRerollCandidates" class="btn primary">候補10個ランダム</button>
         <button id="btnClearRanksThis10" class="btn">この10個だけリセット</button>
-        <button id="btnClearP2Only" class="btn">2人目だけ履歴削除（互換）</button>
+        <button id="btnClearP2Only" class="btn">P2だけ履歴削除</button>
         <button id="btnClearAllSaved" class="btn danger">全消去</button>
       </div>
 
@@ -96,7 +97,7 @@
     <!-- ===== Common ===== -->
     <section id="common" class="card hidden">
       <h2>2) 共通アーティスト</h2>
-      <p class="sub">共通が1件以上あれば開始OK</p>
+      <p class="sub">共通1件以上で開始OK</p>
 
       <div id="commonList" class="list"></div>
 
@@ -112,7 +113,16 @@
     <section id="game" class="card hidden">
       <h2 class="gameTitle">3) 対戦</h2>
 
-      <div id="scoreHUD" class="topHUD"></div>
+      <div class="topHUD">
+        <div class="scoreMini">
+          <div class="miniName" id="sbP1">P1</div>
+          <div class="miniScore" id="sbP1Score">0.0</div>
+        </div>
+        <div class="scoreMini">
+          <div class="miniName" id="sbP2">P2</div>
+          <div class="miniScore" id="sbP2Score">0.0</div>
+        </div>
+      </div>
 
       <div class="turn">
         <div class="badge" id="turnBadge">Round 1</div>
@@ -163,9 +173,10 @@
 
   </main>
 
-  <!-- 固定アクションバー -->
+  <!-- スマホ用：固定アクションバー -->
   <div id="actionBar" class="actionBar hidden">
-    <button id="btnNext" class="btn primary flex1" disabled>次へ</button>
+    <button id="btnNextPlayer" class="btn primary flex1" disabled>次の人へ</button>
+    <button id="btnNextRound" class="btn primary flex1 hidden" disabled>次のラウンド</button>
     <button id="btnEnd" class="btn ghost">終了</button>
   </div>
 
