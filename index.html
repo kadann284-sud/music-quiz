@@ -1,6 +1,5 @@
 <!doctype html>
 <html lang="ja">
-
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
@@ -12,9 +11,8 @@
   <header class="app-header">
     <h1>music-match：共通アーティスト対戦</h1>
     <p class="sub">
-      1台端末 / 同じ問題をみんなが順番に解く / 4択<br>
-      人数：2〜6人 / イントロは「再生→全員回答」<br>
-      manual_tracks.json があるアーティストは manual 優先で出題（音源はiTunes previewを探索）
+      1台端末 / 同じ問題をみんなが順番に解く / 4択〜<br>
+      人数：2〜6人 / イントロは「再生→全員回答」
     </p>
   </header>
 
@@ -41,7 +39,17 @@
             <option value="intro_only" selected>イントロのみ</option>
             <option value="mix">イントロ＋他（ジャケ写 / data.json）</option>
           </select>
+        </div>
 
+        <div class="small">
+          <label>選択肢数</label>
+          <select id="choiceCount" class="input smallInput">
+            <option value="auto" selected>自動（easy=4 / normal=6 / hard=8）</option>
+            <option value="4">4択固定</option>
+            <option value="6">6択固定</option>
+            <option value="8">8択固定</option>
+            <option value="10">10択固定</option>
+          </select>
         </div>
 
         <div class="small">
@@ -178,5 +186,4 @@
 
   <script src="./main.js"></script>
 </body>
-
 </html>

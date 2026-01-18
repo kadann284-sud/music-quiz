@@ -1,4 +1,3 @@
-/* main.js（manual_tracks.json対応版） */
 const $ = (id) => document.getElementById(id);
 
 /* ===== Sections ===== */
@@ -104,7 +103,12 @@ let app = {
   totalQ: 12,
   introLen: 5,
   timeLimit: 10,
-  quizMode: "mix", // intro_only / mix
+
+  // ★初期はイントロのみ
+  quizMode: "intro_only", // intro_only / mix
+
+  // ★選択肢数：auto or 固定(4/6/8/10)
+  choiceCountMode: "auto", // "auto" | "4" | "6" | "8" | "10"
 
   candidates: [],
   selectionsThis10: new Map(),
@@ -180,9 +184,14 @@ function saveCache(key, value) {
 function fmtScore(x){ return (Math.round(x * 10) / 10).toFixed(1); }
 
 /* =========================
-   追加：難易度ごとの選択肢数
+   追加：難易度ごとの選択肢数（固定にも対応）
 ========================= */
 function choiceCountForLevel(level){
+  const v = app.choiceCountMode;
+  if (v && v !== "auto") {
+    const n = parseInt(v, 10);
+    if (Number.isFinite(n) && n >= 2) return n;
+  }
   if (level === "easy") return 4;
   if (level === "hard") return 8;
   return 6; // normal
@@ -231,7 +240,7 @@ function pseudoPopularityScore({ trackName, collectionName, hasPreview, index, t
 }
 
 /* =========================
-   manual_tracks.json loader（追加）
+   manual_tracks.json loader
 ========================= */
 async function loadManualTracks() {
   try {
@@ -272,7 +281,6 @@ function hasManualArtist(artistLabel){
   return app.manualTracks && app.manualTracks.has(artistLabel);
 }
 
-/* manual曲プール選択（難易度に応じて top/all を使い分け） */
 function manualPoolForLevel(man, level){
   const top = Array.isArray(man?.top) ? man.top : [];
   const all = Array.isArray(man?.all) ? man.all : [];
@@ -280,14 +288,9 @@ function manualPoolForLevel(man, level){
 
   const uniq = (arr) => [...new Set(arr.map(String).filter(Boolean))];
 
-  if (level === "easy") {
-    return uniq(top.length ? top : both);
-  }
-  if (level === "hard") {
-    return uniq(all.length ? all : both);
-  }
-  // normal
-  return uniq(both.length ? both : top);
+  if (level === "easy") return uniq(top.length ? top : both);
+  if (level === "hard") return uniq(all.length ? all : both);
+  return uniq(both.length ? both : top); // normal
 }
 
 /* =========================
@@ -323,7 +326,13 @@ function readSetupBasics() {
   saveCache("mm_players_v1", { count: n, names });
 
   app.totalQ = clamp(parseInt($("totalQ").value, 10) || 12, 3, 50);
-  app.quizMode = $("quizMode")?.value || "mix";
+
+  // ★デフォルト intro_only
+  app.quizMode = $("quizMode")?.value || "intro_only";
+
+  // ★選択肢数
+  app.choiceCountMode = $("choiceCount")?.value || "auto";
+
   app.introLen = clamp(parseInt($("introLen")?.value ?? 5, 10) || 5, 1, 15);
   app.timeLimit = clamp(parseInt($("timeLimit")?.value ?? 10, 10) || 0, 0, 120);
 
@@ -744,10 +753,9 @@ async function fetchAlbumTracks(collectionId) {
 }
 
 /* =========================
-   manual: preview補完用（追加）
+   manual: preview補完用
 ========================= */
 async function fetchPreviewForManual(artistLabel, trackName) {
-  // できるだけヒットしやすいように "artist track" で検索
   const term = `${artistLabel} ${trackName}`;
   const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=song&country=JP&limit=25`;
   const res = await fetch(url);
@@ -759,7 +767,6 @@ async function fetchPreviewForManual(artistLabel, trackName) {
   const aKey = normalizeKey(artistLabel);
   const tKey = normalizeKey(trackName);
 
-  // 1) artist+trackが両方一致を優先
   const exact = results
     .filter(r => r && r.trackName && r.artistName && r.previewUrl)
     .map(r => ({
@@ -772,7 +779,6 @@ async function fetchPreviewForManual(artistLabel, trackName) {
 
   if (exact.length) return exact[0];
 
-  // 2) track一致だけ
   const trackOnly = results
     .filter(r => r && r.trackName && r.previewUrl)
     .map(r => ({
@@ -788,13 +794,16 @@ async function fetchPreviewForManual(artistLabel, trackName) {
   return null;
 }
 
+/* =========================
+   Fetch data for common (iTunes pack)
+========================= */
 async function fetchDataForCommon() {
   setMsg(commonMsg, "iTunesデータ取得中…");
 
   app.itunesByArtist.clear();
   app.albumTracksById.clear();
 
-  // ★manualがあるアーティストでも、ジャケ写問題用に iTunes pack は取る（従来挙動維持）
+  // manualがあっても、ジャケ写問題用に iTunes pack は取得（従来維持）
   for (const a of app.common) {
     const pack = await fetchItunesArtistPack(a.label);
     app.itunesByArtist.set(a.label, {
@@ -967,27 +976,23 @@ function selectTrackPool(pack, level) {
   return withScore.slice(start, start + win);
 }
 
-/* ===== manual優先：イントロ→曲名当て（追加/差し替え） ===== */
+/* ===== manual優先：イントロ→曲名当て ===== */
 async function makeQ_introToTitle(topicArtist) {
   const level = questionLevel(topicArtist);
   const need = choiceCountForLevel(level);
   const seconds = app.introLen;
 
-  // 1) manual_tracks があるなら、そこから正解/誤答を作る
+  // 1) manual優先
   if (hasManualArtist(topicArtist.label)) {
     const man = app.manualTracks.get(topicArtist.label);
     const pool = manualPoolForLevel(man, level);
 
-    // 選択肢作成に最低 need 曲必要
     if (pool.length >= need) {
-      // 何度か試行して preview が取れる曲を探す
       for (let attempt = 0; attempt < 18; attempt++) {
         const correct = pickRandom(pool);
-
         const distractors = shuffle(pool.filter(x => normalizeKey(x) !== normalizeKey(correct))).slice(0, need - 1);
         if (distractors.length < need - 1) continue;
 
-        // preview 補完（iTunes検索）
         let previewPack = null;
         try {
           previewPack = await fetchPreviewForManual(topicArtist.label, correct);
@@ -1007,11 +1012,11 @@ async function makeQ_introToTitle(topicArtist) {
           correct
         };
       }
-      // manualで作れなかった → iTunesへフォールバック
+      // manualでpreviewが取れない等 → iTunesへフォールバック
     }
   }
 
-  // 2) 従来通り iTunes pack から生成
+  // 2) 従来 iTunes
   const pack = app.itunesByArtist.get(topicArtist.label);
   if (!pack) return null;
 
@@ -1069,7 +1074,7 @@ function selectAlbumPool(pack, level) {
 }
 
 async function makeQ_coverAlbumToTitle(topicArtist) {
-  // manualがあっても、ジャケ写は従来通り iTunes album から
+  // manualがあってもジャケ写は iTunes album から
   const pack = app.itunesByArtist.get(topicArtist.label);
   if (!pack) return null;
 
@@ -1180,7 +1185,7 @@ function showRoundHandoff() {
   if (timeBarFill) timeBarFill.style.transform = "scaleX(1)";
 
   turnBadge.textContent = `Round ${app.game.round + 1}`;
-  qMeta.textContent = `全${app.totalQ}ラウンド / モード：${app.quizMode === "intro_only" ? "イントロのみ" : "ミックス"} / 人数：${app.players.length}`;
+  qMeta.textContent = `全${app.totalQ}ラウンド / モード：${app.quizMode === "intro_only" ? "イントロのみ" : "ミックス"} / 人数：${app.players.length} / 選択肢：${app.choiceCountMode === "auto" ? "自動" : app.choiceCountMode}`;
 
   handoffTitle.textContent = `Round ${app.game.round + 1}：画面を隠して開始`;
   btnReveal.textContent = "問題を見る";
@@ -1256,7 +1261,7 @@ function renderForAnswerer() {
 
   phaseLine.textContent = `${app.players[ans].name} が回答`;
   rankLine.textContent =
-    `トピック：${topicArtist.label} / 自分:${rankOf(ans, topicArtist)}(${selfV}) / 最高:${bestV} / 差=${diff} → 正解 +${fmtScore(pts)}点 / 出題:${levelJP(level)}`;
+    `トピック：${topicArtist.label} / 自分:${rankOf(ans, topicArtist)}(${selfV}) / 最高:${bestV} / 差=${diff} → 正解 +${fmtScore(pts)}点 / 出題:${levelJP(level)} / 選択肢:${q.choices.length}`;
 
   choicesEl.innerHTML = "";
   q.choices.forEach(ch => {
@@ -1299,7 +1304,7 @@ function renderIntroPhases(topicArtist, q) {
 
   if (phase === "play") {
     phaseLine.textContent = "イントロ再生フェーズ（まだ回答しない）";
-    rankLine.textContent = `再生が終わったら ${app.players[0].name} が回答`;
+    rankLine.textContent = `再生が終わったら ${app.players[0].name} が回答（選択肢:${q.choices.length}）`;
 
     timerNoteEl.textContent = "イントロ再生中（回答フェーズ前）";
 
@@ -1354,7 +1359,7 @@ function renderIntroPhases(topicArtist, q) {
 
   phaseLine.textContent = `${app.players[ans].name} が回答`;
   rankLine.textContent =
-    `トピック：${topicArtist.label} / 自分:${rankOf(ans, topicArtist)}(${selfV}) / 最高:${bestV} / 差=${diff} → 正解 +${fmtScore(pts)}点 / 出題:${levelJP(level)}`;
+    `トピック：${topicArtist.label} / 自分:${rankOf(ans, topicArtist)}(${selfV}) / 最高:${bestV} / 差=${diff} → 正解 +${fmtScore(pts)}点 / 出題:${levelJP(level)} / 選択肢:${q.choices.length}`;
 
   q.choices.forEach(ch => {
     const b = document.createElement("button");
