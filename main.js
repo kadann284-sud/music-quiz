@@ -1,3 +1,4 @@
+/* main.js（manual_tracks.json対応版） */
 const $ = (id) => document.getElementById(id);
 
 /* ===== Sections ===== */
@@ -110,10 +111,15 @@ let app = {
   globalSelections: new Map(), // artist -> {ranks:[...]}
   common: [],
 
+  // iTunes
   itunesByArtist: new Map(),
   albumTracksById: new Map(),
 
+  // data.json
   dataQuestions: [],
+
+  // manual_tracks.json
+  manualTracks: new Map(), // artist -> { top:[], all:[] }
 
   game: {
     round: 0,
@@ -185,8 +191,6 @@ function choiceCountForLevel(level){
 /* =========================
    擬似「サブスク再生数(popScore)」関連
 ========================= */
-
-// 重み付き抽選（items: [{item, w}]）
 function weightedPick(items) {
   const total = items.reduce((s, x) => s + (x.w > 0 ? x.w : 0), 0);
   if (total <= 0) return items.length ? items[0].item : null;
@@ -213,7 +217,7 @@ function bestAlbumBonus(collectionName) {
 
 function orderBonus(index, total) {
   const t = Math.max(1, total);
-  return (t - index) * 3; // 先頭ほど大きい
+  return (t - index) * 3;
 }
 
 function pseudoPopularityScore({ trackName, collectionName, hasPreview, index, total, appearance }) {
@@ -222,8 +226,68 @@ function pseudoPopularityScore({ trackName, collectionName, hasPreview, index, t
   score += bestAlbumBonus(collectionName);
   if (hasPreview) score += 6;
   score += nameShortBonus(trackName);
-  score += (appearance || 1) * 8; // 検索結果に何度も出てくる曲ほど代表曲っぽい
+  score += (appearance || 1) * 8;
   return score;
+}
+
+/* =========================
+   manual_tracks.json loader（追加）
+========================= */
+async function loadManualTracks() {
+  try {
+    const res = await fetch("./manual_tracks.json", { cache: "no-store" });
+    if (!res.ok) throw new Error("manual_tracks.json not found");
+    const json = await res.json();
+    const artists = json?.artists && typeof json.artists === "object" ? json.artists : {};
+
+    app.manualTracks = new Map();
+    for (const [artist, v] of Object.entries(artists)) {
+      const top = Array.isArray(v?.top) ? v.top.map(String).filter(Boolean) : [];
+      const all = Array.isArray(v?.all) ? v.all.map(String).filter(Boolean) : [];
+      if (top.length || all.length) {
+        app.manualTracks.set(String(artist), {
+          top: [...new Set(top)],
+          all: [...new Set(all)]
+        });
+      }
+    }
+
+    if (dataStatus) {
+      const n = app.manualTracks.size;
+      dataStatus.textContent =
+        (dataStatus.textContent ? `${dataStatus.textContent} / ` : "") +
+        `manual_tracks.json：${n} artist`;
+    }
+  } catch {
+    app.manualTracks = new Map();
+    if (dataStatus) {
+      dataStatus.textContent =
+        (dataStatus.textContent ? `${dataStatus.textContent} / ` : "") +
+        "manual_tracks.json：未読み込み";
+    }
+  }
+}
+
+function hasManualArtist(artistLabel){
+  return app.manualTracks && app.manualTracks.has(artistLabel);
+}
+
+/* manual曲プール選択（難易度に応じて top/all を使い分け） */
+function manualPoolForLevel(man, level){
+  const top = Array.isArray(man?.top) ? man.top : [];
+  const all = Array.isArray(man?.all) ? man.all : [];
+  const both = [...top, ...all];
+
+  const uniq = (arr) => [...new Set(arr.map(String).filter(Boolean))];
+
+  if (level === "easy") {
+    return uniq(top.length ? top : both);
+  }
+  if (level === "hard") {
+    return uniq(all.length ? all : both);
+  }
+  // normal
+  return uniq(both.length ? both : top);
 }
 
 /* =========================
@@ -504,10 +568,11 @@ function renderCommonList() {
       const div = document.createElement("div");
       div.className = "item";
       const ranksText = a.ranks.map((r, i) => `${app.players[i].name}:${r}`).join(" / ");
+      const src = hasManualArtist(a.label) ? "manual" : "iTunes";
       div.innerHTML = `
         <div>
           <div class="name">${escapeHtml(a.label)}</div>
-          <div class="sub tiny">${escapeHtml(ranksText)}</div>
+          <div class="sub tiny">${escapeHtml(ranksText)} / source:${escapeHtml(src)}</div>
         </div>
       `;
       commonListEl.appendChild(div);
@@ -678,12 +743,58 @@ async function fetchAlbumTracks(collectionId) {
   return album;
 }
 
+/* =========================
+   manual: preview補完用（追加）
+========================= */
+async function fetchPreviewForManual(artistLabel, trackName) {
+  // できるだけヒットしやすいように "artist track" で検索
+  const term = `${artistLabel} ${trackName}`;
+  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=song&country=JP&limit=25`;
+  const res = await fetch(url);
+  if (!res.ok) return null;
+
+  const data = await res.json();
+  const results = Array.isArray(data?.results) ? data.results : [];
+
+  const aKey = normalizeKey(artistLabel);
+  const tKey = normalizeKey(trackName);
+
+  // 1) artist+trackが両方一致を優先
+  const exact = results
+    .filter(r => r && r.trackName && r.artistName && r.previewUrl)
+    .map(r => ({
+      track: String(r.trackName),
+      artist: String(r.artistName),
+      preview: String(r.previewUrl),
+      artwork: r.artworkUrl100 ? String(r.artworkUrl100) : ""
+    }))
+    .filter(x => normalizeKey(x.artist) === aKey && normalizeKey(x.track) === tKey);
+
+  if (exact.length) return exact[0];
+
+  // 2) track一致だけ
+  const trackOnly = results
+    .filter(r => r && r.trackName && r.previewUrl)
+    .map(r => ({
+      track: String(r.trackName),
+      artist: r.artistName ? String(r.artistName) : "",
+      preview: String(r.previewUrl),
+      artwork: r.artworkUrl100 ? String(r.artworkUrl100) : ""
+    }))
+    .filter(x => normalizeKey(x.track) === tKey);
+
+  if (trackOnly.length) return trackOnly[0];
+
+  return null;
+}
+
 async function fetchDataForCommon() {
   setMsg(commonMsg, "iTunesデータ取得中…");
 
   app.itunesByArtist.clear();
   app.albumTracksById.clear();
 
+  // ★manualがあるアーティストでも、ジャケ写問題用に iTunes pack は取る（従来挙動維持）
   for (const a of app.common) {
     const pack = await fetchItunesArtistPack(a.label);
     app.itunesByArtist.set(a.label, {
@@ -816,7 +927,6 @@ function makeQ_fromDataJson(topicArtist) {
   const pool = pool1.length ? pool1 : (pool2.length ? pool2 : basePool);
   if (!pool.length) return null;
 
-  // choicesが足りる問題だけ
   const candidates = pool.filter(q => Array.isArray(q.choices) && q.choices.length >= need && q.choices.includes(q.answer));
   if (!candidates.length) return null;
 
@@ -846,7 +956,6 @@ function selectTrackPool(pack, level) {
   withScore.sort((a, b) => b.popScore - a.popScore);
 
   const n = withScore.length;
-  // ★8択でも候補が足りるように、切り出しウィンドウを少し広めに
   const need = choiceCountForLevel(level);
   const minWin = Math.min(n, Math.max(need + 4, 10));
   const win = Math.min(n, Math.max(minWin, Math.floor(n * 0.55)));
@@ -858,12 +967,53 @@ function selectTrackPool(pack, level) {
   return withScore.slice(start, start + win);
 }
 
-function makeQ_introToTitle(topicArtist) {
-  const pack = app.itunesByArtist.get(topicArtist.label);
-  if (!pack) return null;
-
+/* ===== manual優先：イントロ→曲名当て（追加/差し替え） ===== */
+async function makeQ_introToTitle(topicArtist) {
   const level = questionLevel(topicArtist);
   const need = choiceCountForLevel(level);
+  const seconds = app.introLen;
+
+  // 1) manual_tracks があるなら、そこから正解/誤答を作る
+  if (hasManualArtist(topicArtist.label)) {
+    const man = app.manualTracks.get(topicArtist.label);
+    const pool = manualPoolForLevel(man, level);
+
+    // 選択肢作成に最低 need 曲必要
+    if (pool.length >= need) {
+      // 何度か試行して preview が取れる曲を探す
+      for (let attempt = 0; attempt < 18; attempt++) {
+        const correct = pickRandom(pool);
+
+        const distractors = shuffle(pool.filter(x => normalizeKey(x) !== normalizeKey(correct))).slice(0, need - 1);
+        if (distractors.length < need - 1) continue;
+
+        // preview 補完（iTunes検索）
+        let previewPack = null;
+        try {
+          previewPack = await fetchPreviewForManual(topicArtist.label, correct);
+        } catch {
+          previewPack = null;
+        }
+        if (!previewPack?.preview) continue;
+
+        const randomStart = (level === "hard");
+        const startAt = randomStart ? Math.floor(Math.random() * Math.max(1, 30 - seconds)) : 0;
+
+        return {
+          kind: "intro_to_title",
+          promptText: `【イントロ】${topicArtist.label} の曲名はどれ？（${seconds}秒 / ${levelJP(level)} / 選択肢:${need}）`,
+          media: { type: "intro", previewUrl: previewPack.preview, seconds, startAt },
+          choices: shuffle([correct, ...distractors]),
+          correct
+        };
+      }
+      // manualで作れなかった → iTunesへフォールバック
+    }
+  }
+
+  // 2) 従来通り iTunes pack から生成
+  const pack = app.itunesByArtist.get(topicArtist.label);
+  if (!pack) return null;
 
   const pool = selectTrackPool(pack, level);
   if (pool.length < need) return null;
@@ -887,7 +1037,6 @@ function makeQ_introToTitle(topicArtist) {
   const distractors = shuffle(uniq).slice(0, need - 1);
 
   const randomStart = (level === "hard");
-  const seconds = app.introLen;
   const startAt = randomStart ? Math.floor(Math.random() * Math.max(1, 30 - seconds)) : 0;
 
   return {
@@ -920,6 +1069,7 @@ function selectAlbumPool(pack, level) {
 }
 
 async function makeQ_coverAlbumToTitle(topicArtist) {
+  // manualがあっても、ジャケ写は従来通り iTunes album から
   const pack = app.itunesByArtist.get(topicArtist.label);
   if (!pack) return null;
 
@@ -977,7 +1127,7 @@ async function buildRoundQuestionAsync() {
 
     for (const t of types) {
       if (t === "data_json") q = makeQ_fromDataJson(topicArtist);
-      if (t === "intro_to_title") q = makeQ_introToTitle(topicArtist);
+      if (t === "intro_to_title") q = await makeQ_introToTitle(topicArtist);
       if (t === "cover_album_to_title") q = await makeQ_coverAlbumToTitle(topicArtist);
 
       if (!q) continue;
@@ -1333,7 +1483,7 @@ function endGame(reason) {
         </div>
       `).join("")}
     </div>
-    <p class="sub">共通アーティスト：${app.common.length} / data.json：${app.dataQuestions.length}問</p>
+    <p class="sub">共通アーティスト：${app.common.length} / data.json：${app.dataQuestions.length}問 / manual:${app.manualTracks?.size || 0} artist</p>
   `;
   show(doneEl);
 }
@@ -1427,5 +1577,6 @@ function hydrateFromCache() {
 
 (async function init() {
   await loadDataQuestions();
+  await loadManualTracks();
   hydrateFromCache();
 })();

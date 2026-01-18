@@ -12,7 +12,8 @@
     <h1>music-match：共通アーティスト対戦</h1>
     <p class="sub">
       1台端末 / 同じ問題をみんなが順番に解く / 4択<br>
-      人数：2〜6人 / イントロは「再生→全員回答」
+      人数：2〜6人 / イントロは「再生→全員回答」<br>
+      manual_tracks.json があるアーティストは manual 優先で出題（音源はiTunes previewを探索）
     </p>
   </header>
 
@@ -170,7 +171,7 @@
   </div>
 
   <footer class="footer">
-    <small>Data: iTunes API + local data.json</small>
+    <small>Data: iTunes API + local data.json + manual_tracks.json</small>
   </footer>
 
   <script src="./main.js"></script>
